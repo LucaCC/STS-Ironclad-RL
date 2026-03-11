@@ -1,22 +1,39 @@
-## Agents in This Repository
+# AGENTS.md
 
-This repository is intended to be used with AI coding assistants (like Cursor Agents) to streamline development. This document specifies how agents should behave when working here.
+## Mission
+Build a Slay the Spire RL research stack, starting with a combat-only environment.
 
-### General Guidelines
+## Rules
+- Never push directly to main.
+- Prefer small PRs tied to one GitHub issue.
+- Every behavior change must include or update tests.
+- If you change interfaces or workflow, update docs/.
+- Do not add major dependencies unless justified in the PR summary.
 
-- Prefer small, focused changes that keep the repository in a working state.
-- When adding new modules, also add or update tests in `tests/`.
-- Keep documentation up to date whenever you introduce non-trivial behavior changes.
+## Code standards
+- Python 3.11+
+- Use type hints for public functions
+- Prefer dataclasses for state containers
+- Keep modules small and composable
+- Avoid hidden global state
+- Favor deterministic, testable logic
 
-### File and Directory Conventions
+## Required checks before opening a PR
+- Run format
+- Run lint
+- Run tests
+- Write a short summary of changes and risks
 
-- `src/`: Core source code. Organize by domain (e.g., `env/`, `agents/`, `training/`).
-- `configs/`: Reusable experiment and training configurations.
-- `scripts/`: One-off or reusable command-line entry points.
-- `docs/`: Long-form documentation and technical notes.
+## Commands
+- install: pip install -r requirements.txt
+- test: pytest -q
+- lint: ruff check .
+- format: ruff format .
 
-### Git and CI
-
-- Do not force-push to `main` unless explicitly instructed.
-- Ensure CI (see `.github/workflows/ci.yml`) is green before merging feature branches into `main`.
+## Priorities
+1. Correctness
+2. Reproducibility
+3. Testability
+4. Simplicity
+5. Performance
 

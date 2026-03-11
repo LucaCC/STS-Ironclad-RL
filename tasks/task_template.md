@@ -1,33 +1,26 @@
-## Task Title
+# Task
 
-**Owner**: _Name or handle_  
-**Status**: Proposed / In Progress / Done  
-**Related Issues/PRs**: _
+## Objective
+What should be built?
 
-### Summary
+## Why
+Why does this matter?
 
-Briefly describe the goal of this task.
+## Inputs
+Existing files, interfaces, or assumptions.
 
-### Motivation
+## Outputs
+Exactly what should exist when complete.
 
-Why is this task important? What problems does it solve?
+## Constraints
+Performance, style, dependencies, interfaces, or safety constraints.
 
-### Scope
+## Acceptance criteria
+Concrete checks or tests that must pass.
 
-- In scope:
-  - _
-- Out of scope:
-  - _
+## Files likely affected
+List the likely files and folders.
 
-### Plan
-
-1. _
-2. _
-3. _
-
-### Testing
-
-- Unit tests:
-- Integration tests:
-- Manual checks:
+## Out of scope
+What must not be changed.
 

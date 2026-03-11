@@ -1,14 +1,17 @@
-# STS-Ironclad-RL
+# Slay the Spire RL
 
-RL agent to play Slay the Spire.
+Reinforcement-learning research stack for Slay the Spire, starting with a combat-only environment.
 
-## Overview
-
-This repository contains an RL agent to play the Ironclad character in *Slay the Spire*. The goal is to provide a clean, reproducible environment for experimentation with different RL algorithms and architectures.
+## Milestones
+- Milestone 0: repo, agents, CI, automation
+- Milestone 1: combat environment
+- Milestone 2: baseline bots
+- Milestone 3: evaluation suite
+- Milestone 4: learning pipeline
 
 ## Project Structure
 
-- `AGENTS.md`: High-level guidance for using AI agents (like Cursor) with this repo.
+- `AGENTS.md`: Rules, code standards, and workflow expectations for contributors and AI agents.
 - `docs/`: Project vision, architecture, and roadmap documents.
 - `src/`: Source code for the RL environment, agents, and training loops.
 - `tests/`: Unit and integration tests.
@@ -17,6 +20,20 @@ This repository contains an RL agent to play the Ironclad character in *Slay the
 - `tasks/`: Task templates and checklists.
 - `.github/workflows/`: CI configuration.
 
-## Getting Started
+## Developer setup
 
-Documentation is being bootstrapped. See `docs/vision.md` and `docs/architecture.md` for the current design direction.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pre-commit install
+```
+
+### Commands
+
+```bash
+ruff format .
+ruff check .
+pytest -q
+```
+

@@ -1,24 +1,17 @@
-## Roadmap
+# Roadmap
 
-This is an initial high-level roadmap for the project. Timelines are intentionally approximate and should be refined as work progresses.
+## Milestone 0
+Set up GitHub, Codex, Cursor, CI, AGENTS.md, issue templates, and n8n workflows.
 
-### Phase 1: Foundations
+## Milestone 1
+Combat-only environment with deterministic seeds, legal action masking, and smoke tests.
 
-- Set up basic project structure, CI, and documentation.
-- Implement a minimal environment wrapper for Ironclad.
-- Add a simple baseline agent and training loop.
+## Milestone 2
+Baseline bots: random, greedy damage, greedy defense, heuristic.
 
-### Phase 2: Experimentation
+## Milestone 3
+Fixed-seed benchmark harness and reporting.
 
-- Add support for multiple RL algorithms (e.g., PPO, DQN variants).
-- Introduce configuration-driven experiment definitions in `configs/`.
-- Improve logging and evaluation tooling.
-
-### Phase 3: Scaling and Extensions
-
-- Optimize training performance and resource usage.
-- Support additional characters and game modes.
-- Experiment with advanced techniques (e.g., curriculum learning, model-based RL).
-
-This roadmap is a living document; revise it as the project evolves.
+## Milestone 4
+First learning pipeline.
 
