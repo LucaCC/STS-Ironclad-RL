@@ -1,7 +1,6 @@
-"""Top-level package for the Slay the Spire RL research stack."""
+"""Environment state primitives for the Slay the Spire RL stack."""
 
-from .bootstrap import ProjectInfo, get_project_info
-from .env import (
+from .state import (
     CombatantState,
     CombatState,
     DrawResult,
@@ -17,9 +16,6 @@ __all__ = [
     "DrawResult",
     "EncounterConfig",
     "PileState",
-    "ProjectInfo",
     "create_initial_combat_state",
     "draw_cards",
-    "get_project_info",
 ]
-__version__ = "0.1.0"
