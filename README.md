@@ -9,6 +9,10 @@ Reinforcement-learning research stack for Slay the Spire, starting with a combat
 - Milestone 3: evaluation suite
 - Milestone 4: learning pipeline
 
+## Current Focus
+
+- Active milestone tracker: [docs/current_milestone.md](docs/current_milestone.md)
+
 ## Project Structure
 
 - `AGENTS.md`: Rules, code standards, and workflow expectations for contributors and AI agents.
