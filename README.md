@@ -29,6 +29,14 @@ pip install -r requirements.txt
 pre-commit install
 ```
 
+## Local workflow
+
+Run the same checks locally before opening a PR:
+
+```bash
+pre-commit run --all-files
+```
+
 ### Commands
 
 ```bash
@@ -37,3 +45,8 @@ ruff check .
 pytest -q
 ```
 
+Pre-commit runs:
+
+- `ruff format --check .`
+- `ruff check .`
+- `pytest -q`
