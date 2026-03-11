@@ -4,10 +4,11 @@ This document outlines the intended high-level architecture for the project.
 
 ### Top-Level Layout
 
-- `src/env/`: Environment wrappers and interfaces for *Slay the Spire*.
-- `src/agents/`: Policy and value function implementations.
-- `src/training/`: Training loops, replay buffers, and optimization logic.
-- `src/utils/`: Shared utilities (logging, seeding, metrics, etc.).
+- `src/sts_ironclad_rl/env/`: Environment wrappers and interfaces for *Slay the Spire*.
+- `src/sts_ironclad_rl/agents/`: Policy and value function implementations.
+- `src/sts_ironclad_rl/training/`: Training loops, replay buffers, and optimization logic.
+- `src/sts_ironclad_rl/evaluation/`: Evaluation harnesses, benchmarks, and reporting helpers.
+- `src/sts_ironclad_rl/utils/`: Shared utilities (logging, seeding, metrics, etc.).
 
 ### Current Environment Foundation
 
