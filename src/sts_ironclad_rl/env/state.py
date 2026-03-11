@@ -82,6 +82,7 @@ class CombatState:
     seed: int
     turn: int
     energy: int
+    draw_per_turn: int
     player: CombatantState
     enemy: CombatantState
     piles: PileState
@@ -103,6 +104,7 @@ def create_initial_combat_state(seed: int, config: EncounterConfig) -> CombatSta
         seed=seed,
         turn=1,
         energy=config.starting_energy,
+        draw_per_turn=config.draw_per_turn,
         player=CombatantState(hp=config.player_max_hp, max_hp=config.player_max_hp),
         enemy=CombatantState(hp=config.enemy_max_hp, max_hp=config.enemy_max_hp),
         piles=piles,
@@ -129,6 +131,7 @@ def draw_cards(state: CombatState, count: int) -> DrawResult:
         seed=state.seed,
         turn=state.turn,
         energy=state.energy,
+        draw_per_turn=state.draw_per_turn,
         player=state.player,
         enemy=state.enemy,
         piles=next_piles,
