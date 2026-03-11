@@ -1,0 +1,57 @@
+name: "Feature request"
+description: "Propose a new capability or change in behavior."
+title: "[Feature] "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for new features and improvements.
+  - type: input
+    id: objective
+    attributes:
+      label: Objective
+      description: What should be built?
+      placeholder: "Short, outcome-focused statement."
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: Why does this matter? What problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Inputs
+      description: Existing files, interfaces, or assumptions.
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Outputs
+      description: Exactly what should exist when complete.
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Performance, style, dependencies, interfaces, or safety constraints.
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Concrete checks or tests that must pass.
+    validations:
+      required: true
+  - type: textarea
+    id: files_likely_affected
+    attributes:
+      label: Files likely affected
+      description: List the likely files and folders.
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What must not be changed.
+

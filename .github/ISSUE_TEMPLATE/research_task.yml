@@ -1,0 +1,42 @@
+name: "Research task"
+description: "Explore an idea, design, or experiment without immediate implementation."
+title: "[Research] "
+labels: ["research"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for research and design tasks that may produce follow-up implementation issues.
+  - type: input
+    id: objective
+    attributes:
+      label: Objective
+      description: What question are we trying to answer?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Existing behavior, prior work, and any relevant links.
+  - type: textarea
+    id: hypotheses
+    attributes:
+      label: Hypotheses / options
+      description: Which approaches or options should be evaluated?
+  - type: textarea
+    id: plan
+    attributes:
+      label: Plan
+      description: How will this research be conducted?
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Deliverables
+      description: Exactly what artifacts should exist when this task is done (docs, recommendations, follow-up issues, etc.).
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: How we will know this research task is complete.
+
