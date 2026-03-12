@@ -17,6 +17,7 @@ smoke testing, and integration against the real game.
 
 - Active milestone tracker: [docs/current_milestone.md](docs/current_milestone.md)
 - Milestone 1 target: a trainable deterministic single-combat substrate
+- Live-game bridge design: [docs/live_game_bridge.md](docs/live_game_bridge.md)
 
 ## Project Structure
 
