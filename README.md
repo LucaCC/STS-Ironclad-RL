@@ -12,6 +12,7 @@ Reinforcement-learning research stack for Slay the Spire, starting with a combat
 ## Current Focus
 
 - Active milestone tracker: [docs/current_milestone.md](docs/current_milestone.md)
+- Live-game bridge design: [docs/live_game_bridge.md](docs/live_game_bridge.md)
 
 ## Project Structure
 
