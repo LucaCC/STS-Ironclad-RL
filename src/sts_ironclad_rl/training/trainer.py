@@ -74,15 +74,16 @@ def run_baseline_trainer(
     training_summary = evaluate_policy(
         encounter_config=config.encounter_config,
         policy=train_policy,
-        episodes=config.train_episodes,
-        seed=config.seed,
+        seeds=range(config.seed, config.seed + config.train_episodes),
         max_actions_per_episode=config.max_actions_per_episode,
     )
     evaluation_summary = evaluate_policy(
         encounter_config=config.encounter_config,
         policy=eval_policy,
-        episodes=config.eval_episodes,
-        seed=config.seed + config.train_episodes,
+        seeds=range(
+            config.seed + config.train_episodes,
+            config.seed + config.train_episodes + config.eval_episodes,
+        ),
         max_actions_per_episode=config.max_actions_per_episode,
     )
 
@@ -106,14 +107,14 @@ def _emit_logs(
     label: str,
     log_every: int,
 ) -> None:
-    for episode in summary.episodes:
-        if (episode.episode_index + 1) % log_every != 0:
+    for episode_index, episode in enumerate(summary.episodes, start=1):
+        if episode_index % log_every != 0:
             continue
         payload = {
             "phase": label,
-            "policy": episode.policy_name,
-            "episode": episode.episode_index + 1,
-            "seed": episode.episode_seed,
+            "policy": summary.policy_name,
+            "episode": episode_index,
+            "seed": episode.seed,
             "episode_reward": episode.total_reward,
             "won": episode.won,
             "combat_length": episode.combat_length,

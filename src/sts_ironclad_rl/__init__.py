@@ -29,10 +29,8 @@ from .evaluation import (
     EvaluationSummary,
     evaluate_episode,
     evaluate_heuristic_policy,
+    evaluate_policy,
     evaluate_random_policy,
-)
-from .evaluation import (
-    evaluate_policy as evaluate_seeded_policy,
 )
 
 __all__ = [
@@ -63,8 +61,8 @@ __all__ = [
     "encode_observation",
     "evaluate_episode",
     "evaluate_heuristic_policy",
+    "evaluate_policy",
     "evaluate_random_policy",
-    "evaluate_seeded_policy",
     "get_project_info",
     "legal_action_mask",
     "legal_actions",

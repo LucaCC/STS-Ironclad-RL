@@ -11,14 +11,12 @@ def test_policy_evaluation_is_reproducible_for_same_seed() -> None:
     summary_a = evaluate_policy(
         encounter_config=config,
         policy=make_policy("random"),
-        episodes=4,
-        seed=17,
+        seeds=range(17, 21),
     )
     summary_b = evaluate_policy(
         encounter_config=config,
         policy=make_policy("random"),
-        episodes=4,
-        seed=17,
+        seeds=range(17, 21),
     )
 
     assert summary_a == summary_b

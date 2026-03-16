@@ -65,7 +65,9 @@ Pre-commit runs:
 Milestone 1 now includes a minimal baseline-oriented training scaffold under
 `src/sts_ironclad_rl/training/`. It deliberately avoids a full RL library and
 instead provides deterministic seeded rollouts, baseline policy evaluation, and
-basic metric logging for the first combat slice.
+basic metric logging for the first combat slice. The canonical rollout path is
+`CombatTrainingEnv`; `sts_ironclad_rl.evaluation` is a thin wrapper around that
+same seeded harness rather than a separate environment stack.
 
 Run it with:
 

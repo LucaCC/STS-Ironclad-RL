@@ -24,6 +24,8 @@ for agent training loops.
 - `src/sts_ironclad_rl/env/training.py`: Thin wrapper that exposes the combat core through `reset` and `step`.
 - `src/sts_ironclad_rl/training/`: Lightweight rollout and trainer scaffolding
   for seeded baseline episodes without committing to an RL library yet.
+- `src/sts_ironclad_rl/evaluation/`: Public evaluation helpers layered on top of
+  the canonical training rollout path instead of duplicating environment logic.
 - Deterministic setup should flow through explicit seed arguments rather than hidden global RNG state.
 - State transitions should be expressed as pure functions that return new state objects where practical.
 

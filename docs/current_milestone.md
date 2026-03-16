@@ -28,7 +28,7 @@ be stepped, seeded, tested, and used as the primary training substrate.
 - complete deterministic combat state and transition foundations
 - expose a trainable combat stepping interface with legal action handling
 - add a minimal seeded rollout and baseline trainer scaffold for end-to-end
-  milestone 1 runs
+  milestone 1 runs, with evaluation reusing the same wrapper-level rollout path
 - keep smoke and integration hooks sufficient to validate assumptions against
   the live game
 

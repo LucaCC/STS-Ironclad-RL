@@ -3,7 +3,6 @@ from random import Random
 import pytest
 
 from sts_ironclad_rl import Action, EncounterConfig
-from sts_ironclad_rl.env import CombatEnvironment
 from sts_ironclad_rl.evaluation import (
     EvaluationSummary,
     evaluate_episode,
@@ -26,10 +25,8 @@ def make_config() -> EncounterConfig:
 
 
 def test_evaluate_episode_is_deterministic_for_fixed_seed() -> None:
-    env = CombatEnvironment(make_config())
-
-    first = evaluate_episode(env=env, policy=HeuristicPolicy(), seed=7)
-    second = evaluate_episode(env=env, policy=HeuristicPolicy(), seed=7)
+    first = evaluate_episode(encounter_config=make_config(), policy=HeuristicPolicy(), seed=7)
+    second = evaluate_episode(encounter_config=make_config(), policy=HeuristicPolicy(), seed=7)
 
     assert first == second
 
@@ -53,7 +50,7 @@ def test_heuristic_policy_summary_matches_expected_metrics() -> None:
             EpisodeMetrics(
                 seed=1,
                 won=True,
-                total_reward=24.0,
+                total_reward=1.0,
                 combat_length=7,
                 damage_taken=1,
                 remaining_hp=79,
@@ -61,7 +58,7 @@ def test_heuristic_policy_summary_matches_expected_metrics() -> None:
             EpisodeMetrics(
                 seed=2,
                 won=True,
-                total_reward=24.0,
+                total_reward=1.0,
                 combat_length=7,
                 damage_taken=2,
                 remaining_hp=78,
@@ -69,14 +66,14 @@ def test_heuristic_policy_summary_matches_expected_metrics() -> None:
             EpisodeMetrics(
                 seed=3,
                 won=True,
-                total_reward=24.0,
+                total_reward=1.0,
                 combat_length=7,
                 damage_taken=1,
                 remaining_hp=79,
             ),
         ),
         win_rate=1.0,
-        mean_episode_reward=24.0,
+        mean_episode_reward=1.0,
         mean_combat_length=7.0,
         mean_damage_taken=4 / 3,
         mean_remaining_hp=236 / 3,

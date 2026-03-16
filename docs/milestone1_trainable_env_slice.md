@@ -174,6 +174,20 @@ Requirements:
 - training code should separate environment seeds from model initialization seeds
 - tests should cover deterministic reset and at least one deterministic rollout
 
+## Wrapper And Evaluation Contract
+
+Milestone 1 should expose one training-facing contract built on the deterministic
+combat core:
+
+- `CombatEnvironment` remains the source of truth for state transitions, legal
+  actions, card play, end-turn handling, and enemy progression
+- `CombatTrainingEnv` provides the RL wrapper contract:
+  `reset(seed=...) -> (observation, info)` and
+  `step(action_index) -> (observation, reward, terminated, truncated, info)`
+- observations and action masks come from `src/sts_ironclad_rl/env/encoding.py`
+- seeded evaluation and the baseline trainer must reuse `CombatTrainingEnv`
+  rather than maintaining a second rollout implementation
+
 ## Implementation Gaps
 
 The current combat foundation is close to this slice, but wrapper and training threads will still need a few hooks:
