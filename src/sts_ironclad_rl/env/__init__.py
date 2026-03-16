@@ -1,26 +1,51 @@
-"""Environment state primitives for the Slay the Spire RL stack."""
+"""Combat environment exports for the Slay the Spire RL stack."""
 
-from .combat import Action, CombatEnvironment, InvalidActionError, StepResult
+from .combat import (
+    CombatAction,
+    CombatEnvironment,
+    EndTurnAction,
+    InvalidActionError,
+    PlayCardAction,
+    StepResult,
+    apply_action,
+    legal_actions,
+)
 from .state import (
-    CombatantState,
+    CARD_LIBRARY,
+    CardDefinition,
+    CardState,
     CombatState,
     DrawResult,
     EncounterConfig,
+    MonsterConfig,
+    MonsterIntent,
+    MonsterState,
     PileState,
+    PlayerState,
     create_initial_combat_state,
     draw_cards,
 )
 
 __all__ = [
-    "Action",
+    "CARD_LIBRARY",
+    "CardDefinition",
+    "CardState",
+    "CombatAction",
     "CombatState",
-    "CombatantState",
     "CombatEnvironment",
     "DrawResult",
+    "EndTurnAction",
     "EncounterConfig",
     "InvalidActionError",
+    "MonsterConfig",
+    "MonsterIntent",
+    "MonsterState",
     "PileState",
+    "PlayCardAction",
+    "PlayerState",
     "StepResult",
+    "apply_action",
     "create_initial_combat_state",
     "draw_cards",
+    "legal_actions",
 ]
