@@ -80,3 +80,21 @@ def test_short_rollout_completes_deterministically() -> None:
 
     assert rewards == [6.0, 6.0, 0.0, 6.0, 6.0]
     assert done is True
+
+
+def test_end_turn_restores_configured_starting_energy() -> None:
+    env = CombatEnvironment(
+        EncounterConfig(
+            player_max_hp=80,
+            enemy_max_hp=20,
+            starting_energy=1,
+            draw_per_turn=1,
+            deck=("defend",),
+        )
+    )
+    env.reset(seed=9)
+
+    result = env.step(Action.END_TURN)
+
+    assert result.state.turn == 2
+    assert result.state.energy == 1

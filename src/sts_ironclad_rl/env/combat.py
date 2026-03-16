@@ -57,6 +57,24 @@ class CombatEnvironment:
             Action.END_TURN: True,
         }
 
+    def legal_action_mask(self) -> tuple[bool, ...]:
+        """Return legal actions in stable action-index order."""
+        from .encoding import legal_action_mask
+
+        return legal_action_mask(self._require_state())
+
+    def observation(self) -> tuple[int, ...]:
+        """Return the current state encoded for milestone 1 training."""
+        from .encoding import encode_observation
+
+        return encode_observation(self._require_state())
+
+    def step_index(self, action_index: int) -> StepResult:
+        """Decode and execute an indexed action."""
+        from .encoding import decode_action_index
+
+        return self.step(decode_action_index(action_index))
+
     def step(self, action: Action) -> StepResult:
         """Apply one action and advance the combat deterministically."""
         state = self._require_state()
@@ -111,6 +129,7 @@ def _play_card(state: CombatState, card_id: str, block_gain: int, enemy_damage: 
         seed=state.seed,
         turn=state.turn,
         energy=state.energy - 1,
+        starting_energy=state.starting_energy,
         draw_per_turn=state.draw_per_turn,
         player=next_player,
         enemy=next_enemy,
@@ -124,7 +143,8 @@ def _end_turn(state: CombatState) -> CombatState:
     start_turn = CombatState(
         seed=post_enemy.seed,
         turn=post_enemy.turn + 1,
-        energy=3,
+        energy=post_enemy.starting_energy,
+        starting_energy=post_enemy.starting_energy,
         draw_per_turn=post_enemy.draw_per_turn,
         player=CombatantState(
             hp=post_enemy.player.hp,
@@ -149,6 +169,7 @@ def _apply_enemy_turn(state: CombatState) -> CombatState:
         seed=state.seed,
         turn=state.turn,
         energy=state.energy,
+        starting_energy=state.starting_energy,
         draw_per_turn=state.draw_per_turn,
         player=next_player,
         enemy=state.enemy,
@@ -157,18 +178,18 @@ def _apply_enemy_turn(state: CombatState) -> CombatState:
 
 
 def _discard_hand(piles: PileState) -> PileState:
-    draw_pile = piles.draw_pile
-    discard_pile = piles.discard_pile + piles.hand
-    if not draw_pile and discard_pile:
-        draw_pile = discard_pile
-        discard_pile = ()
     return PileState(
-        draw_pile=draw_pile,
+        draw_pile=piles.draw_pile,
         hand=(),
-        discard_pile=discard_pile,
+        discard_pile=piles.discard_pile + piles.hand,
         exhaust_pile=piles.exhaust_pile,
     )
 
 
 def _enemy_damage(seed: int, turn: int) -> int:
     return 6 + ((seed + turn) % 2)
+
+
+def enemy_intent_damage(state: CombatState) -> int:
+    """Return the deterministic enemy damage preview for the current turn."""
+    return _enemy_damage(seed=state.seed, turn=state.turn)
