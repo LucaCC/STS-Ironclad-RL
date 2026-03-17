@@ -2,6 +2,10 @@
 
 Reinforcement-learning research stack for Slay the Spire, starting with a combat-only environment.
 
+The primary training path is a deterministic local battle environment. A
+CommunicationMod-based live-game bridge is secondary and exists for validation,
+smoke testing, and integration against the real game.
+
 ## Milestones
 - Milestone 0: repo, agents, CI, automation
 - Milestone 1: combat environment
@@ -12,6 +16,7 @@ Reinforcement-learning research stack for Slay the Spire, starting with a combat
 ## Current Focus
 
 - Active milestone tracker: [docs/current_milestone.md](docs/current_milestone.md)
+- Milestone 1 target: a trainable deterministic single-combat substrate
 
 ## Project Structure
 
@@ -54,3 +59,22 @@ Pre-commit runs:
 - `ruff format --check .`
 - `ruff check .`
 - `pytest -q`
+
+## Training Scaffold
+
+Milestone 1 now includes a minimal baseline-oriented training scaffold under
+`src/sts_ironclad_rl/training/`. It deliberately avoids a full RL library and
+instead provides deterministic seeded rollouts, baseline policy evaluation, and
+basic metric logging for the first combat slice. The canonical rollout path is
+`CombatTrainingEnv`; `sts_ironclad_rl.evaluation` is a thin wrapper around that
+same seeded harness rather than a separate environment stack.
+
+Run it with:
+
+```bash
+python -m sts_ironclad_rl.training --train-policy heuristic --eval-policy random --train-episodes 10 --eval-episodes 5 --seed 7
+```
+
+The command emits per-episode JSON logs for the training phase and a final
+evaluation summary with episode reward, win rate, combat length, remaining HP,
+and HP delta.

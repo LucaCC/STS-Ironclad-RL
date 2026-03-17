@@ -82,6 +82,7 @@ class CombatState:
     seed: int
     turn: int
     energy: int
+    starting_energy: int
     draw_per_turn: int
     player: CombatantState
     enemy: CombatantState
@@ -104,6 +105,7 @@ def create_initial_combat_state(seed: int, config: EncounterConfig) -> CombatSta
         seed=seed,
         turn=1,
         energy=config.starting_energy,
+        starting_energy=config.starting_energy,
         draw_per_turn=config.draw_per_turn,
         player=CombatantState(hp=config.player_max_hp, max_hp=config.player_max_hp),
         enemy=CombatantState(hp=config.enemy_max_hp, max_hp=config.enemy_max_hp),
@@ -118,25 +120,40 @@ def draw_cards(state: CombatState, count: int) -> DrawResult:
         msg = "count cannot be negative"
         raise ValueError(msg)
 
-    drawn_cards = state.piles.draw_pile[:count]
-    remaining_draw_pile = state.piles.draw_pile[count:]
-    next_hand = state.piles.hand + drawn_cards
+    draw_pile = state.piles.draw_pile
+    discard_pile = state.piles.discard_pile
+    drawn_cards: list[CardId] = []
+
+    while len(drawn_cards) < count:
+        if not draw_pile:
+            if not discard_pile:
+                break
+            draw_pile = discard_pile
+            discard_pile = ()
+
+        cards_to_draw = min(count - len(drawn_cards), len(draw_pile))
+        drawn_cards.extend(draw_pile[:cards_to_draw])
+        draw_pile = draw_pile[cards_to_draw:]
+
+    drawn_tuple = tuple(drawn_cards)
+    next_hand = state.piles.hand + drawn_tuple
     next_piles = PileState(
-        draw_pile=remaining_draw_pile,
+        draw_pile=draw_pile,
         hand=next_hand,
-        discard_pile=state.piles.discard_pile,
+        discard_pile=discard_pile,
         exhaust_pile=state.piles.exhaust_pile,
     )
     next_state = CombatState(
         seed=state.seed,
         turn=state.turn,
         energy=state.energy,
+        starting_energy=state.starting_energy,
         draw_per_turn=state.draw_per_turn,
         player=state.player,
         enemy=state.enemy,
         piles=next_piles,
     )
-    return DrawResult(state=next_state, drawn_cards=drawn_cards)
+    return DrawResult(state=next_state, drawn_cards=drawn_tuple)
 
 
 def _shuffle_deck(deck: tuple[CardId, ...], seed: int) -> tuple[CardId, ...]:
