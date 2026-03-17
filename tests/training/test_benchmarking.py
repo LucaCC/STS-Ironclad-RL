@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pytest
 import torch
@@ -19,6 +20,7 @@ from sts_ironclad_rl.training import (
     load_benchmark_spec,
     load_dqn_trainer_config,
     load_trained_dqn_policy,
+    resolve_dqn_training_summary_path,
 )
 
 
@@ -148,7 +150,10 @@ def test_comparison_report_formats_policy_metrics_and_artifacts(tmp_path) -> Non
             BenchmarkPolicySpec(policy_name="random_legal", policy_ref="random_legal"),
             BenchmarkPolicySpec(
                 policy_name="masked_dqn",
-                policy_ref="dqn_checkpoint:artifacts/training/live_dqn/checkpoints/checkpoint_final.pt",
+                policy_ref=(
+                    "dqn_checkpoint:artifacts/training/"
+                    "masked_dqn_baseline/checkpoints/checkpoint_final.pt"
+                ),
             ),
         ),
     )
@@ -244,3 +249,11 @@ def test_load_dqn_trainer_config_and_checkpoint_policy(tmp_path) -> None:
 
     assert policy.name == "masked_dqn"
     assert policy.select_action(observation).action_id == "end_turn"
+
+
+def test_resolve_dqn_training_summary_path_matches_benchmark_checkpoint_convention() -> None:
+    checkpoint_path = Path("artifacts/training/masked_dqn_baseline/checkpoints/checkpoint_final.pt")
+
+    assert resolve_dqn_training_summary_path(checkpoint_path) == Path(
+        "artifacts/training/masked_dqn_baseline/summary.json"
+    )

@@ -1,11 +1,14 @@
 """Training and experimentation helpers built on the live rollout path."""
 
 from .artifacts import (
+    DQNTrainerRunLayout,
     ExperimentArtifactStore,
     ExperimentRunLayout,
     RunMetadata,
     build_run_id,
+    create_dqn_trainer_run_layout,
     make_run_metadata,
+    resolve_dqn_training_summary_path,
     slugify,
 )
 from .benchmarking import (
@@ -69,6 +72,7 @@ __all__ = [
     "BenchmarkPolicySpec",
     "BenchmarkRunLayout",
     "BenchmarkSpec",
+    "DQNTrainerRunLayout",
     "ExperimentArtifactStore",
     "ExperimentRunLayout",
     "ExperimentRunResult",
@@ -102,6 +106,7 @@ __all__ = [
     "TrainingEpisodeMetrics",
     "build_comparison_report",
     "build_run_id",
+    "create_dqn_trainer_run_layout",
     "epsilon_greedy_action",
     "format_comparison_report",
     "legal_argmax",
@@ -111,6 +116,7 @@ __all__ = [
     "load_trained_dqn_policy",
     "load_checkpoint",
     "make_run_metadata",
+    "resolve_dqn_training_summary_path",
     "sanitize_legal_action_mask",
     "save_checkpoint",
     "should_sync_target_network",

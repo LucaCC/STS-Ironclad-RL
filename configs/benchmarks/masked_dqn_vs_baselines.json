@@ -1,13 +1,13 @@
 {
   "episode_count": 3,
-  "evaluation_case_name": "dqn_vs_baselines",
-  "experiment_name": "dqn vs baselines",
+  "evaluation_case_name": "masked_dqn_vs_baselines",
+  "experiment_name": "masked dqn vs baselines",
   "max_steps": 150,
   "metadata": {
     "wave": "wave6",
-    "workflow": "thread13"
+    "workflow": "thread14"
   },
-  "notes": "Post-training comparison between baseline policies and the current default DQN checkpoint path.",
+  "notes": "Post-training comparison between baseline policies and the canonical masked-DQN baseline checkpoint.",
   "policies": [
     {
       "policy_name": "random_legal",
@@ -21,7 +21,7 @@
     {
       "notes": "Update the checkpoint path if your training output lives elsewhere.",
       "policy_name": "masked_dqn",
-      "policy_ref": "dqn_checkpoint:artifacts/training/live_dqn_benchmark/checkpoints/checkpoint_final.pt"
+      "policy_ref": "dqn_checkpoint:artifacts/training/masked_dqn_baseline/checkpoints/checkpoint_final.pt"
     }
   ]
 }

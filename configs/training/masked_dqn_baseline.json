@@ -7,7 +7,7 @@
     "initial": 1.0
   },
   "evaluation_cadence": 5,
-  "evaluation_case_name": "dqn_eval",
+  "evaluation_case_name": "masked_dqn_eval",
   "evaluation_episodes": 3,
   "gamma": 0.99,
   "learning_rate": 0.001,
@@ -24,7 +24,7 @@
   "replay_buffer_size": 10000,
   "seed": 7,
   "target_update_frequency": 100,
-  "train_case_name": "dqn_train",
+  "train_case_name": "masked_dqn_train",
   "train_episodes": 20,
   "warmup_steps": 1000
 }

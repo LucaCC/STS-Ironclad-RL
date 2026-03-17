@@ -13,6 +13,7 @@ from .actions import (
     action_from_id,
     action_to_id,
 )
+from .cli import build_live_episode_runner, instantiate_transport, load_live_policy, load_object
 from .contracts import (
     ActionContract,
     ActionDecision,
@@ -55,6 +56,7 @@ __all__ = [
     "ActionContract",
     "ActionDecision",
     "BatchEvaluationResult",
+    "build_live_episode_runner",
     "BridgeObservationEncoder",
     "BridgeDisconnectError",
     "CardObservation",
@@ -68,11 +70,14 @@ __all__ = [
     "EvaluationCase",
     "EvaluationSummary",
     "LiveEpisodeRunner",
+    "instantiate_transport",
     "JsonlReplaySink",
     "LeaveAction",
     "LiveAction",
     "LiveActionType",
     "LiveObservation",
+    "load_live_policy",
+    "load_object",
     "MonsterTarget",
     "ObservationEncoder",
     "ObservationLayout",

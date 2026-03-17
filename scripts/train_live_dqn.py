@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from scripts._live_utils import build_live_episode_runner, instantiate_transport, load_object
+from sts_ironclad_rl.live import build_live_episode_runner, instantiate_transport, load_object
 from sts_ironclad_rl.training import DQNTrainer, DQNTrainerConfig, load_dqn_trainer_config
 
 
@@ -27,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("artifacts/training/live_dqn"),
+        default=Path("artifacts/training/masked_dqn_baseline"),
         help="Directory for trainer config, metrics, summaries, and checkpoints",
     )
     parser.add_argument("--episodes", type=int, default=20, help="Training episodes to collect")

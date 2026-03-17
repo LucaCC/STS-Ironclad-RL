@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -11,8 +10,7 @@ from pathlib import Path
 from typing import Any, Self
 
 from ..live import EvaluationSummary, summary_to_dict
-
-_SLUG_PATTERN = re.compile(r"[^a-z0-9]+")
+from .artifacts import slugify
 
 
 @dataclass(frozen=True)
@@ -276,7 +274,7 @@ class BenchmarkArtifactStore:
 
     def create_run_layout(self, *, spec: BenchmarkSpec, started_at: datetime) -> BenchmarkRunLayout:
         run_id = started_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        experiment_dir = self.root_dir / _slugify(spec.experiment_name)
+        experiment_dir = self.root_dir / slugify(spec.experiment_name)
         run_dir = _create_run_dir(experiment_dir=experiment_dir, run_id=run_id)
         return BenchmarkRunLayout(
             run_dir=run_dir,
@@ -414,11 +412,6 @@ def _format_counts(counts: Mapping[str, int]) -> str:
     if not counts:
         return "none"
     return ",".join(f"{key}:{counts[key]}" for key in sorted(counts))
-
-
-def _slugify(value: str) -> str:
-    normalized = _SLUG_PATTERN.sub("-", value.strip().lower()).strip("-")
-    return normalized or "benchmark"
 
 
 def _create_run_dir(*, experiment_dir: Path, run_id: str) -> Path:
