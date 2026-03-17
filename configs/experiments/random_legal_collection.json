@@ -1,0 +1,16 @@
+{
+  "episode_count": 5,
+  "evaluation_case_name": "collection",
+  "experiment_name": "random legal collection",
+  "max_steps": 100,
+  "metadata": {
+    "bridge_mode": "live"
+  },
+  "notes": "Collect a small replay-backed smoke dataset through the shared live rollout path.",
+  "policy_name": "random_legal",
+  "seed": 7,
+  "tags": [
+    "smoke",
+    "dataset"
+  ]
+}

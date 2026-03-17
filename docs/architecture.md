@@ -14,6 +14,8 @@ Gym-style simulator wrapper.
   session lifecycle, and raw trace logging.
 - `src/sts_ironclad_rl/live/`: Bridge-facing observation, action, policy,
   rollout, and replay contracts.
+- `src/sts_ironclad_rl/training/`: Lightweight experiment specs, collection
+  runners, and artifact layout built on the shared live rollout interface.
 - `src/sts_ironclad_rl/env/`: Local deterministic helpers kept narrow for tests,
   offline reasoning, and non-primary support workflows.
 - future agent, training, and evaluation packages should build on the live
@@ -46,6 +48,8 @@ Gym-style simulator wrapper.
   metadata without discarding the raw bridge trace.
 - the evaluation harness should call into the same rollout path used for data
   collection.
+- the training/experimentation scaffold should call the same rollout runner and
+  write reproducible run artifacts rather than introducing a second loop.
 
 ### Non-Goals For This Milestone
 
