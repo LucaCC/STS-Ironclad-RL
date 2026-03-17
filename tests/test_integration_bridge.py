@@ -70,12 +70,15 @@ def test_bridge_send_action_requires_matching_session() -> None:
 
 
 def test_bridge_receive_state_rejects_unexpected_messages() -> None:
-    transport = FakeTransport(
-        received=[
+    transport = FakeTransport()
+    bridge = LiveGameBridge(transport=transport)
+    session = bridge.connect()
+    transport.received.extend(
+        [
             BridgeEnvelope(
                 message_type=BridgeMessageType.GAME_STATE,
                 payload={
-                    "session_id": "session-1",
+                    "session_id": session.session_id,
                     "screen_state": "COMBAT",
                     "available_actions": ("end_turn",),
                     "in_combat": True,
@@ -87,13 +90,11 @@ def test_bridge_receive_state_rejects_unexpected_messages() -> None:
             BridgeEnvelope(message_type=BridgeMessageType.ACK, payload={"ok": True}),
         ]
     )
-    bridge = LiveGameBridge(transport=transport)
-    bridge.connect()
 
     snapshot = bridge.receive_state()
 
     assert snapshot == GameStateSnapshot(
-        session_id="session-1",
+        session_id=session.session_id,
         screen_state="COMBAT",
         available_actions=("end_turn",),
         in_combat=True,
@@ -103,4 +104,26 @@ def test_bridge_receive_state_rejects_unexpected_messages() -> None:
     )
 
     with pytest.raises(ValueError, match="expected game_state"):
+        bridge.receive_state()
+
+
+def test_bridge_receive_state_rejects_mismatched_session() -> None:
+    transport = FakeTransport(
+        received=[
+            BridgeEnvelope(
+                message_type=BridgeMessageType.GAME_STATE,
+                payload={
+                    "session_id": "other-session",
+                    "screen_state": "COMBAT",
+                    "available_actions": ("end_turn",),
+                    "in_combat": True,
+                    "raw_state": {},
+                },
+            )
+        ]
+    )
+    bridge = LiveGameBridge(transport=transport)
+    bridge.connect()
+
+    with pytest.raises(ValueError, match="game_state session_id"):
         bridge.receive_state()

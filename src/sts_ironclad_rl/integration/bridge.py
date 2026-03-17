@@ -105,6 +105,7 @@ class LiveGameBridge:
 
     def receive_state(self) -> GameStateSnapshot | None:
         """Receive the next game-state snapshot if one is available."""
+        session = self._require_session()
         envelope = self._transport.receive()
         if envelope is None:
             return None
@@ -112,6 +113,9 @@ class LiveGameBridge:
             msg = (
                 f"expected {BridgeMessageType.GAME_STATE.value}, got {envelope.message_type.value}"
             )
+            raise ValueError(msg)
+        if envelope.payload.get("session_id") != session.session_id:
+            msg = "game_state session_id must match the active bridge session"
             raise ValueError(msg)
 
         return GameStateSnapshot(**envelope.payload)
