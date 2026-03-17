@@ -35,6 +35,19 @@ from .learner import (
     RewardConfig,
 )
 from .specs import ExperimentSpec, load_experiment_spec
+from .trainer import (
+    DQNTrainer,
+    DQNTrainerConfig,
+    DQNTrainingResult,
+    EpsilonSchedule,
+    MaskedDQNPolicy,
+    PolicySelectionStats,
+    TrainerState,
+    TrainingEpisodeMetrics,
+    should_sync_target_network,
+    summarize_training_metrics,
+    transition_to_dict,
+)
 
 __all__ = [
     "ExperimentArtifactStore",
@@ -42,8 +55,12 @@ __all__ = [
     "ExperimentRunResult",
     "ExperimentRunner",
     "ExperimentSpec",
+    "DQNTrainer",
+    "DQNTrainerConfig",
+    "DQNTrainingResult",
     "DEFAULT_ACTION_SIZE",
     "DEFAULT_OBSERVATION_SIZE",
+    "EpsilonSchedule",
     "LEARNER_OBSERVATION_SCHEMA_VERSION",
     "LEARNER_TRANSITION_SCHEMA_VERSION",
     "LearnerActionIndex",
@@ -55,11 +72,15 @@ __all__ = [
     "LearnerTransitionExtractor",
     "MaskedDQN",
     "MaskedDQNConfig",
+    "MaskedDQNPolicy",
     "PolicyProvider",
+    "PolicySelectionStats",
     "ReplayBatch",
     "ReplayBuffer",
     "RewardConfig",
     "RunMetadata",
+    "TrainerState",
+    "TrainingEpisodeMetrics",
     "build_run_id",
     "epsilon_greedy_action",
     "legal_argmax",
@@ -68,5 +89,8 @@ __all__ = [
     "make_run_metadata",
     "sanitize_legal_action_mask",
     "save_checkpoint",
+    "should_sync_target_network",
     "slugify",
+    "summarize_training_metrics",
+    "transition_to_dict",
 ]
