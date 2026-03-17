@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 
-from sts_ironclad_rl.integration import ActionCommand, GameStateSnapshot
+from sts_ironclad_rl.integration import ActionCommand
 from sts_ironclad_rl.live import (
     ActionDecision,
     EncodedObservation,
     EpisodeFailure,
+    EvaluationCase,
     EvaluationSummary,
     PolicyEvaluator,
     ReplayEntry,
@@ -16,16 +17,13 @@ from sts_ironclad_rl.live import (
     summary_to_dict,
     summary_to_json,
 )
+from tests.live.factories import make_snapshot
 
 
 def _observation(*, session_id: str = "session-1") -> EncodedObservation:
-    snapshot = GameStateSnapshot(
+    snapshot = make_snapshot(
         session_id=session_id,
-        screen_state="COMBAT",
         available_actions=("play_card:0", "end_turn"),
-        in_combat=True,
-        floor=3,
-        act=1,
         raw_state={},
     )
     return EncodedObservation(
@@ -130,14 +128,13 @@ def test_policy_evaluator_runs_requested_number_of_episodes() -> None:
 
         def run_episode(self, *, policy, evaluation_case=None) -> RolloutResult:
             del policy
-            del evaluation_case
             self.calls += 1
             return RolloutResult(
                 session_id=f"session-{self.calls}",
                 entries=(),
                 terminal=True,
                 step_count=0,
-                outcome="combat_end",
+                outcome=evaluation_case.name if evaluation_case is not None else "combat_end",
             )
 
     class StubPolicy:
@@ -148,8 +145,13 @@ def test_policy_evaluator_runs_requested_number_of_episodes() -> None:
             raise AssertionError("runner stub should not call the policy")
 
     runner = StubRunner()
-    result = PolicyEvaluator(runner=runner).evaluate(policy=StubPolicy(), episode_count=3)
+    result = PolicyEvaluator(runner=runner).evaluate(
+        policy=StubPolicy(),
+        episode_count=3,
+        evaluation_case=EvaluationCase(name="smoke"),
+    )
 
     assert runner.calls == 3
     assert result.summary.episode_count == 3
-    assert result.summary.outcome_counts == {"combat_end": 3}
+    assert result.summary.case_name == "smoke"
+    assert result.summary.outcome_counts == {"smoke": 3}
