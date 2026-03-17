@@ -43,9 +43,14 @@ Supported built-in policies:
 
 - `simple_heuristic`
 - `random_legal`
+- `dqn_checkpoint:/path/to/checkpoint.pt`
 
 Custom policies can be provided as `module:factory` import paths. The factory
 must return an object compatible with `sts_ironclad_rl.live.Policy`.
+
+For trained DQN evaluation, point `--policy` at a trainer or model checkpoint
+with the `dqn_checkpoint:` prefix and optionally set `--policy-name` for the
+summary label.
 
 ## Transport Assumption
 
@@ -74,3 +79,5 @@ the repo into one local bridge implementation.
   `src/sts_ironclad_rl/live/evaluation.py`.
 - The CLI only wires transport, policy, runner, and summary output together.
 - `scripts/run_live_experiment.py` reuses the same runner setup for collection.
+- `scripts/run_live_benchmark.py` reuses the same runner plus `PolicyEvaluator`
+  for side-by-side baseline and checkpoint comparisons.

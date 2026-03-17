@@ -16,6 +16,7 @@ from sts_ironclad_rl.live import (
     RunnerConfig,
     SimpleHeuristicPolicy,
 )
+from sts_ironclad_rl.training import load_trained_dqn_policy
 
 
 def build_live_episode_runner(
@@ -41,13 +42,27 @@ def build_live_episode_runner(
     )
 
 
-def load_policy(policy_arg: str, *, seed: int | None) -> Policy:
+def load_policy(
+    policy_arg: str,
+    *,
+    seed: int | None,
+    device: str = "cpu",
+    policy_name: str | None = None,
+) -> Policy:
     """Resolve one built-in or user-provided policy factory."""
 
     if policy_arg in {"simple_heuristic", "heuristic"}:
-        return SimpleHeuristicPolicy()
+        return SimpleHeuristicPolicy(name=policy_name or "simple_heuristic")
     if policy_arg in {"random_legal", "random"}:
-        return RandomLegalPolicy(seed=seed)
+        return RandomLegalPolicy(seed=seed, name=policy_name or "random_legal")
+    if policy_arg.startswith("dqn_checkpoint:"):
+        checkpoint_path = policy_arg.split(":", maxsplit=1)[1]
+        return load_trained_dqn_policy(
+            checkpoint_path,
+            device=device,
+            policy_name=policy_name or "masked_dqn",
+            seed=seed,
+        )
 
     factory = load_object(policy_arg)
     policy = factory()

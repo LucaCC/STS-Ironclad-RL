@@ -104,3 +104,6 @@ The trainer writes:
 - `evaluations.jsonl`: greedy evaluation summaries
 - `summary.json`: latest aggregate trainer summary
 - `checkpoints/`: periodic and final trainer checkpoints
+
+See [docs/live_benchmarks.md](live_benchmarks.md) for the first baseline-vs-DQN
+comparison workflow built on top of these artifacts.

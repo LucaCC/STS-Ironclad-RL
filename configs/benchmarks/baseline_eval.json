@@ -1,0 +1,22 @@
+{
+  "episode_count": 3,
+  "evaluation_case_name": "baseline_eval",
+  "experiment_name": "baseline policy evaluation",
+  "max_steps": 150,
+  "metadata": {
+    "wave": "wave6",
+    "workflow": "thread13"
+  },
+  "notes": "Small live batch for random-legal and heuristic baseline smoke comparison.",
+  "policies": [
+    {
+      "policy_name": "random_legal",
+      "policy_ref": "random_legal",
+      "seed": 7
+    },
+    {
+      "policy_name": "simple_heuristic",
+      "policy_ref": "simple_heuristic"
+    }
+  ]
+}

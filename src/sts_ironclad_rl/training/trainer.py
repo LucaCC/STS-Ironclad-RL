@@ -152,6 +152,52 @@ class DQNTrainerConfig:
             "evaluation_case_name": self.evaluation_case_name,
         }
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> DQNTrainerConfig:
+        """Build a validated trainer config from a raw JSON-like payload."""
+
+        epsilon_payload = payload.get("epsilon_schedule", {})
+        if not isinstance(epsilon_payload, dict):
+            raise ValueError("epsilon_schedule must be a JSON object")
+        network_payload = payload.get("network", {})
+        if not isinstance(network_payload, dict):
+            raise ValueError("network must be a JSON object")
+
+        return cls(
+            train_episodes=int(payload.get("train_episodes", 20)),
+            evaluation_episodes=int(payload.get("evaluation_episodes", 3)),
+            max_steps_per_episode=int(payload.get("max_steps_per_episode", 200)),
+            replay_buffer_size=int(payload.get("replay_buffer_size", 10_000)),
+            batch_size=int(payload.get("batch_size", 32)),
+            learning_rate=float(payload.get("learning_rate", 1e-3)),
+            gamma=float(payload.get("gamma", 0.99)),
+            epsilon_schedule=EpsilonSchedule(
+                initial=float(epsilon_payload.get("initial", 1.0)),
+                final=float(epsilon_payload.get("final", 0.05)),
+                decay_steps=int(epsilon_payload.get("decay_steps", 10_000)),
+            ),
+            target_update_frequency=int(payload.get("target_update_frequency", 100)),
+            warmup_steps=int(payload.get("warmup_steps", 1_000)),
+            evaluation_cadence=int(payload.get("evaluation_cadence", 10)),
+            checkpoint_cadence=int(payload.get("checkpoint_cadence", 10)),
+            gradient_clip_norm=(
+                None
+                if payload.get("gradient_clip_norm") is None
+                else float(payload["gradient_clip_norm"])
+            ),
+            metric_window_size=int(payload.get("metric_window_size", 20)),
+            seed=None if payload.get("seed") is None else int(payload["seed"]),
+            network=MaskedDQNConfig(
+                observation_size=int(network_payload.get("observation_size", 93)),
+                action_size=int(network_payload.get("action_size", 61)),
+                hidden_sizes=tuple(
+                    int(size) for size in network_payload.get("hidden_sizes", (128, 128))
+                ),
+            ),
+            train_case_name=str(payload.get("train_case_name", "dqn_train")),
+            evaluation_case_name=str(payload.get("evaluation_case_name", "dqn_eval")),
+        )
+
 
 @dataclass(frozen=True)
 class PolicySelectionStats:
@@ -380,7 +426,7 @@ class DQNTrainer:
             name="masked_dqn_eval",
             rng=random.Random(self.config.seed),
         )
-        return evaluator.evaluate(
+        summary = evaluator.evaluate(
             policy=policy,
             episode_count=self.config.evaluation_episodes,
             evaluation_case=EvaluationCase(
@@ -388,6 +434,26 @@ class DQNTrainer:
                 max_steps=self.config.max_steps_per_episode,
             ),
         ).summary
+        stats = policy.stats()
+        return EvaluationSummary(
+            policy_name=summary.policy_name,
+            case_name=summary.case_name,
+            episode_count=summary.episode_count,
+            terminal_episode_count=summary.terminal_episode_count,
+            interruption_count=summary.interruption_count,
+            outcome_counts=summary.outcome_counts,
+            failure_counts=summary.failure_counts,
+            action_counts=summary.action_counts,
+            mean_steps=summary.mean_steps,
+            mean_total_reward=summary.mean_total_reward,
+            mean_final_score=summary.mean_final_score,
+            mean_final_floor=summary.mean_final_floor,
+            metadata={
+                **dict(summary.metadata),
+                "invalid_action_count": stats.invalid_action_count,
+                "mask_fallback_count": stats.mask_fallback_count,
+            },
+        )
 
     def training_summary(self) -> dict[str, Any]:
         """Return a compact JSON-serializable training summary."""
@@ -645,6 +711,44 @@ def transition_to_dict(transition) -> dict[str, Any]:
     }
 
 
+def load_dqn_trainer_config(config_path: str | Path) -> DQNTrainerConfig:
+    """Load one trainer config from JSON."""
+
+    payload = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("trainer config must be a JSON object")
+    return DQNTrainerConfig.from_dict(payload)
+
+
+def load_trained_dqn_policy(
+    checkpoint_path: str | Path,
+    *,
+    device: torch.device | str = "cpu",
+    epsilon: float = 0.0,
+    policy_name: str = "masked_dqn",
+    seed: int | None = None,
+) -> MaskedDQNPolicy:
+    """Load a trained DQN checkpoint into the shared live-policy adapter."""
+
+    payload = torch.load(Path(checkpoint_path), map_location=device, weights_only=False)
+    if not isinstance(payload, dict):
+        raise ValueError("checkpoint payload must be a dictionary")
+
+    network_config = _checkpoint_network_config(payload)
+    model = MaskedDQN(network_config)
+    state_dict = _checkpoint_state_dict(payload)
+    model.load_state_dict(state_dict)
+    model.to(device)
+    model.eval()
+    return MaskedDQNPolicy(
+        model=model,
+        epsilon=epsilon,
+        device=torch.device(device),
+        name=policy_name,
+        rng=random.Random(seed),
+    )
+
+
 def _masked_next_q_values(q_values: Tensor, legal_action_masks: Tensor) -> Tensor:
     safe_masks = _sanitize_batch_masks(legal_action_masks, action_size=q_values.shape[1])
     masked_q_values = q_values.masked_fill(~safe_masks, float("-inf"))
@@ -669,6 +773,37 @@ def _fallback_action_id(legal_action_ids: tuple[str, ...]) -> str:
     return legal_action_ids[0]
 
 
+def _checkpoint_network_config(payload: dict[str, Any]) -> MaskedDQNConfig:
+    if "config" in payload and isinstance(payload["config"], dict):
+        raw_network = payload["config"].get("network")
+        if isinstance(raw_network, dict):
+            return MaskedDQNConfig(
+                observation_size=int(raw_network["observation_size"]),
+                action_size=int(raw_network["action_size"]),
+                hidden_sizes=tuple(int(size) for size in raw_network["hidden_sizes"]),
+            )
+
+    if "model_config" in payload and isinstance(payload["model_config"], dict):
+        raw_network = payload["model_config"]
+        return MaskedDQNConfig(
+            observation_size=int(raw_network["observation_size"]),
+            action_size=int(raw_network["action_size"]),
+            hidden_sizes=tuple(int(size) for size in raw_network["hidden_sizes"]),
+        )
+
+    return MaskedDQNConfig()
+
+
+def _checkpoint_state_dict(payload: dict[str, Any]) -> dict[str, Tensor]:
+    if "online_model_state_dict" in payload and isinstance(
+        payload["online_model_state_dict"], dict
+    ):
+        return payload["online_model_state_dict"]
+    if "model_state_dict" in payload and isinstance(payload["model_state_dict"], dict):
+        return payload["model_state_dict"]
+    raise ValueError("checkpoint is missing a supported model state dict")
+
+
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, sort_keys=True))
@@ -688,6 +823,8 @@ __all__ = [
     "PolicySelectionStats",
     "TrainerState",
     "TrainingEpisodeMetrics",
+    "load_dqn_trainer_config",
+    "load_trained_dqn_policy",
     "should_sync_target_network",
     "summarize_training_metrics",
     "transition_to_dict",
