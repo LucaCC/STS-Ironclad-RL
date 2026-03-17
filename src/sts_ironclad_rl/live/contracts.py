@@ -36,8 +36,20 @@ class ReplayEntry:
     step_index: int
     observation: EncodedObservation
     action: ActionDecision | None = None
+    command: ActionCommand | None = None
     reward: float | None = None
     terminal: bool = False
+    outcome: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EpisodeFailure:
+    """Structured failure or interruption information for one episode."""
+
+    kind: str
+    message: str
+    step_index: int
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
@@ -48,7 +60,10 @@ class RolloutResult:
     session_id: str
     entries: tuple[ReplayEntry, ...]
     terminal: bool
+    step_count: int
     outcome: str | None = None
+    failure: EpisodeFailure | None = None
+    total_reward: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
@@ -63,13 +78,20 @@ class EvaluationCase:
 
 @dataclass(frozen=True)
 class EvaluationSummary:
-    """Aggregate evaluation output built on top of rollout results."""
+    """Aggregate evaluation output built from rollout results."""
 
     policy_name: str
     case_name: str
     episode_count: int
-    completion_rate: float
+    terminal_episode_count: int
+    interruption_count: int
+    outcome_counts: Mapping[str, int]
+    failure_counts: Mapping[str, int]
+    action_counts: Mapping[str, int]
     mean_steps: float
+    mean_total_reward: float | None = None
+    mean_final_score: float | None = None
+    mean_final_floor: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
@@ -98,7 +120,7 @@ class ReplaySink(Protocol):
 
 
 class Policy(Protocol):
-    """Minimal policy contract for live-game rollouts."""
+    """Minimal policy contract for live-game decisions."""
 
     name: str
 
@@ -125,7 +147,7 @@ class RawStateObservationEncoder:
     include_snapshot_metadata: bool = True
 
     def encode(self, snapshot: GameStateSnapshot) -> EncodedObservation:
-        metadata = {}
+        metadata: dict[str, Any] = {}
         if self.include_snapshot_metadata:
             metadata = {
                 "screen_state": snapshot.screen_state,
