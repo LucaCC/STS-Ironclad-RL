@@ -9,6 +9,18 @@ from .artifacts import (
     slugify,
 )
 from .experiments import ExperimentRunner, ExperimentRunResult, PolicyProvider
+from .learner import (
+    LEARNER_OBSERVATION_SCHEMA_VERSION,
+    LEARNER_TRANSITION_SCHEMA_VERSION,
+    LearnerActionIndex,
+    LearnerObservation,
+    LearnerObservationEncoder,
+    LearnerObservationLayout,
+    LearnerRewardFunction,
+    LearnerTransition,
+    LearnerTransitionExtractor,
+    RewardConfig,
+)
 from .specs import ExperimentSpec, load_experiment_spec
 
 __all__ = [
@@ -17,7 +29,17 @@ __all__ = [
     "ExperimentRunResult",
     "ExperimentRunner",
     "ExperimentSpec",
+    "LEARNER_OBSERVATION_SCHEMA_VERSION",
+    "LEARNER_TRANSITION_SCHEMA_VERSION",
+    "LearnerActionIndex",
+    "LearnerObservation",
+    "LearnerObservationEncoder",
+    "LearnerObservationLayout",
+    "LearnerRewardFunction",
+    "LearnerTransition",
+    "LearnerTransitionExtractor",
     "PolicyProvider",
+    "RewardConfig",
     "RunMetadata",
     "build_run_id",
     "load_experiment_spec",

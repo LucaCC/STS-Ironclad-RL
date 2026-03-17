@@ -20,6 +20,7 @@ milestone.
 - Live-game bridge plan: [docs/live_game_bridge.md](docs/live_game_bridge.md)
 - PR reconciliation and next workstreams: [docs/live_game_first_milestone.md](docs/live_game_first_milestone.md)
 - Live collection scaffold: [docs/live_training_scaffold.md](docs/live_training_scaffold.md)
+- Learner-side DQN contract: [docs/learner_contract.md](docs/learner_contract.md)
 
 ## Project Structure
 
