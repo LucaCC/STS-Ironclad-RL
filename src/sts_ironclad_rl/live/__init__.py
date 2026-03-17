@@ -30,7 +30,6 @@ from .contracts import (
     SnapshotActionContract,
 )
 from .observation import (
-    SCHEMA_VERSION,
     BridgeObservationEncoder,
     CardObservation,
     CombatObservation,
@@ -38,12 +37,13 @@ from .observation import (
     LiveObservation,
     ObservationLayout,
     PlayerObservation,
+    SCHEMA_VERSION,
     flatten_observation,
     vector_schema,
 )
 from .replay import (
-    REPLAY_SCHEMA_VERSION,
     JsonlReplayWriter,
+    REPLAY_SCHEMA_VERSION,
     iter_replay_entries,
     read_replay_entries,
 )
