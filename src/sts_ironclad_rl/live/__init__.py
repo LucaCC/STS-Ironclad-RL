@@ -1,4 +1,4 @@
-"""Bridge-facing live RL contracts and actions."""
+"""Bridge-facing live RL contracts, actions, observations, and replay utilities."""
 
 from .actions import (
     ChooseAction,
@@ -29,31 +29,63 @@ from .contracts import (
     RolloutRunner,
     SnapshotActionContract,
 )
+from .observation import (
+    SCHEMA_VERSION,
+    BridgeObservationEncoder,
+    CardObservation,
+    CombatObservation,
+    EnemyObservation,
+    LiveObservation,
+    ObservationLayout,
+    PlayerObservation,
+    flatten_observation,
+    vector_schema,
+)
+from .replay import (
+    REPLAY_SCHEMA_VERSION,
+    JsonlReplayWriter,
+    iter_replay_entries,
+    read_replay_entries,
+)
 
 __all__ = [
     "ActionContract",
     "ActionDecision",
+    "BridgeObservationEncoder",
+    "CardObservation",
     "ChooseAction",
+    "CombatObservation",
     "CommunicationModActionContract",
     "EncodedObservation",
     "EndTurnAction",
+    "EnemyObservation",
     "EvaluationCase",
     "EvaluationSummary",
+    "JsonlReplayWriter",
     "LeaveAction",
     "LiveAction",
     "LiveActionType",
+    "LiveObservation",
     "MonsterTarget",
     "ObservationEncoder",
+    "ObservationLayout",
     "PlayCardAction",
+    "PlayerObservation",
     "Policy",
     "ProceedAction",
+    "REPLAY_SCHEMA_VERSION",
     "RawStateObservationEncoder",
     "ReplayEntry",
     "ReplayFailure",
     "ReplaySink",
     "RolloutResult",
     "RolloutRunner",
+    "SCHEMA_VERSION",
     "SnapshotActionContract",
     "action_from_id",
     "action_to_id",
+    "flatten_observation",
+    "iter_replay_entries",
+    "read_replay_entries",
+    "vector_schema",
 ]
