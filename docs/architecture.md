@@ -26,13 +26,16 @@ Gym-style simulator wrapper.
 - `src/sts_ironclad_rl/integration/bridge.py`: Python-side bridge lifecycle
   around an injected transport implementation.
 - `src/sts_ironclad_rl/integration/logger.py`: JSONL trace logging for later
-  debugging, evaluation, and replay correlation.
+  debugging, evaluation, replay correlation, and simulator cross-checks.
 
 ### Live RL Contracts
 
 - `LiveGameBridge` and `LiveGameBridgeSession` are the bridge-facing control
   boundary. Higher layers should work through these types rather than bypassing
   transport/session logic.
+- `src/sts_ironclad_rl/live/`: Bridge-facing observation encoding, action
+  mapping, baseline policies, rollout execution, replay utilities, and
+  lightweight evaluation helpers for CommunicationMod-driven runs.
 - `ObservationEncoder` translates `GameStateSnapshot` into stable policy-facing
   observations while preserving metadata needed for replay/debugging.
 - `ActionContract` owns the policy-facing action namespace and maps chosen
