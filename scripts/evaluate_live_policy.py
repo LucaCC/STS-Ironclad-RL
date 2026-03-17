@@ -32,8 +32,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--policy",
         default="simple_heuristic",
         help=(
-            "Built-in policy name (simple_heuristic, random_legal) or import path module:factory"
+            "Built-in policy name, dqn_checkpoint:/path/to/checkpoint.pt, or import path "
+            "module:factory"
         ),
+    )
+    parser.add_argument(
+        "--policy-name",
+        default=None,
+        help="Optional explicit name used in summaries for the selected policy",
     )
     parser.add_argument("--episodes", type=int, default=3, help="Number of live episodes to run")
     parser.add_argument("--case-name", default="live_eval", help="Label used in summary output")
@@ -57,6 +63,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path for a JSON summary artifact",
     )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Torch device used when loading checkpoint-backed DQN policies",
+    )
     return parser
 
 
@@ -68,7 +79,12 @@ def main() -> int:
         raise SystemExit("--max-steps must be positive")
 
     transport_factory = load_object(args.transport)
-    policy = load_policy(args.policy, seed=args.seed)
+    policy = load_policy(
+        args.policy,
+        seed=args.seed,
+        device=args.device,
+        policy_name=args.policy_name,
+    )
     transport = instantiate_transport(transport_factory)
     runner = build_live_episode_runner(
         transport=transport,

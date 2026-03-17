@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 from scripts._live_utils import build_live_episode_runner, instantiate_transport, load_object
-from sts_ironclad_rl.training import DQNTrainer, DQNTrainerConfig, EpsilonSchedule, MaskedDQNConfig
+from sts_ironclad_rl.training import DQNTrainer, DQNTrainerConfig, load_dqn_trainer_config
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +17,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--transport",
         required=True,
         help="Import path to a BridgeTransport factory, for example package.module:build_transport",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Optional JSON trainer config. When provided, trainer hyperparameters come from it.",
     )
     parser.add_argument(
         "--output-dir",
@@ -95,36 +101,43 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    config = (
+        load_dqn_trainer_config(args.config)
+        if args.config is not None
+        else DQNTrainerConfig.from_dict(
+            {
+                "batch_size": args.batch_size,
+                "checkpoint_cadence": args.checkpoint_cadence,
+                "epsilon_schedule": {
+                    "decay_steps": args.epsilon_decay_steps,
+                    "final": args.epsilon_final,
+                    "initial": args.epsilon_start,
+                },
+                "evaluation_cadence": args.evaluation_cadence,
+                "evaluation_episodes": args.evaluation_episodes,
+                "gamma": args.gamma,
+                "learning_rate": args.learning_rate,
+                "max_steps_per_episode": args.max_steps,
+                "network": {"hidden_sizes": list(args.hidden_sizes)},
+                "replay_buffer_size": args.replay_size,
+                "seed": args.seed,
+                "target_update_frequency": args.target_update_frequency,
+                "train_episodes": args.episodes,
+                "warmup_steps": args.warmup_steps,
+            }
+        )
+    )
     transport_factory = load_object(args.transport)
     transport = instantiate_transport(transport_factory)
     runner = build_live_episode_runner(
         transport=transport,
         host=args.host,
         port=args.port,
-        max_steps=args.max_steps,
+        max_steps=config.max_steps_per_episode,
     )
     trainer = DQNTrainer(
         rollout_runner=runner,
-        config=DQNTrainerConfig(
-            train_episodes=args.episodes,
-            evaluation_episodes=args.evaluation_episodes,
-            max_steps_per_episode=args.max_steps,
-            replay_buffer_size=args.replay_size,
-            batch_size=args.batch_size,
-            learning_rate=args.learning_rate,
-            gamma=args.gamma,
-            epsilon_schedule=EpsilonSchedule(
-                initial=args.epsilon_start,
-                final=args.epsilon_final,
-                decay_steps=args.epsilon_decay_steps,
-            ),
-            target_update_frequency=args.target_update_frequency,
-            warmup_steps=args.warmup_steps,
-            evaluation_cadence=args.evaluation_cadence,
-            checkpoint_cadence=args.checkpoint_cadence,
-            network=MaskedDQNConfig(hidden_sizes=tuple(args.hidden_sizes)),
-            seed=args.seed,
-        ),
+        config=config,
     )
     result = trainer.train(output_dir=args.output_dir)
     print(f"output_dir={result.output_dir}")

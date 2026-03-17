@@ -40,8 +40,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Optional built-in policy name "
-            "(simple_heuristic, random_legal) or import path module:factory"
+            "(simple_heuristic, random_legal), dqn_checkpoint:/path/to/checkpoint.pt, "
+            "or import path module:factory"
         ),
+    )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Torch device used when loading checkpoint-backed DQN policies",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Bridge host forwarded to BridgeConfig")
     parser.add_argument(
@@ -78,7 +84,12 @@ def main() -> int:
         max_steps=spec.max_steps or 200,
     )
     policy_name = args.policy or spec.policy_name
-    policy = load_policy(policy_name, seed=args.seed)
+    policy = load_policy(
+        policy_name,
+        seed=args.seed,
+        device=args.device,
+        policy_name=spec.policy_name,
+    )
     experiment_runner = ExperimentRunner(
         rollout_runner=runner,
         artifact_store=ExperimentArtifactStore(root_dir=args.artifacts_dir),

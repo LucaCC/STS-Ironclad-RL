@@ -20,6 +20,7 @@ milestone.
 - Live-game bridge plan: [docs/live_game_bridge.md](docs/live_game_bridge.md)
 - PR reconciliation and next workstreams: [docs/live_game_first_milestone.md](docs/live_game_first_milestone.md)
 - Live collection scaffold: [docs/live_training_scaffold.md](docs/live_training_scaffold.md)
+- Live benchmark workflow: [docs/live_benchmarks.md](docs/live_benchmarks.md)
 - Learner-side DQN contract: [docs/learner_contract.md](docs/learner_contract.md)
 
 ## Project Structure
@@ -85,6 +86,8 @@ Near-term implementation should converge on these repo-level concepts:
   `python scripts/evaluate_live_policy.py --transport package.module:build_transport --policy simple_heuristic --episodes 3`
 - Run a replay-backed collection config through the same rollout path:
   `python scripts/run_live_experiment.py --transport package.module:build_transport --config configs/experiments/random_legal_collection.json`
+- Run the first baseline or DQN-vs-baselines benchmark workflow:
+  `python scripts/run_live_benchmark.py --transport package.module:build_transport --config configs/benchmarks/baseline_eval.json`
 
 This repo intentionally does not adopt Gym or Gymnasium as the core abstraction
 for that loop.

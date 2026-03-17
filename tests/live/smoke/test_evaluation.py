@@ -116,6 +116,7 @@ def test_summary_serialization_and_text_format_are_stable() -> None:
 
     text = format_evaluation_summary(summary)
     assert "policy=random_legal case=batch-a episodes=3" in text
+    assert "rates=completion:0.67 interruption:0.33 victory:0.67 defeat:0.00" in text
     assert "outcomes=combat_end:1,victory:2" in text
     assert "failures=max_steps_exceeded:1" in text
     assert "mean_final_score=12.00" in text

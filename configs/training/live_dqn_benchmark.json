@@ -1,0 +1,30 @@
+{
+  "batch_size": 32,
+  "checkpoint_cadence": 5,
+  "epsilon_schedule": {
+    "decay_steps": 5000,
+    "final": 0.05,
+    "initial": 1.0
+  },
+  "evaluation_cadence": 5,
+  "evaluation_case_name": "dqn_eval",
+  "evaluation_episodes": 3,
+  "gamma": 0.99,
+  "learning_rate": 0.001,
+  "max_steps_per_episode": 150,
+  "metric_window_size": 10,
+  "network": {
+    "action_size": 61,
+    "hidden_sizes": [
+      128,
+      128
+    ],
+    "observation_size": 93
+  },
+  "replay_buffer_size": 10000,
+  "seed": 7,
+  "target_update_frequency": 100,
+  "train_case_name": "dqn_train",
+  "train_episodes": 20,
+  "warmup_steps": 1000
+}
