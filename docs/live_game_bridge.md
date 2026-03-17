@@ -3,15 +3,13 @@
 ## Purpose
 
 The live-game bridge connects this repository to a locally installed copy of
-*Slay the Spire* running through the mod stack. Its purpose is not to replace
-the fast Python combat environment. It exists to:
+*Slay the Spire* running through the mod stack. It is now the primary
+implementation path for the next milestone. It exists to:
 
-- validate assumptions against the real game
-- prove the end-to-end control loop
+- prove the end-to-end control loop against the real game
 - collect trajectories for future evaluation and training
-- compare simulator behavior against live observations
-
-The high-speed RL training environment remains the repo-side combat simulator.
+- establish the policy-facing observation and action contracts
+- provide the rollout path used by evaluation and later training
 
 ## System Components
 
@@ -36,6 +34,7 @@ This repository is responsible for:
 - trajectory logging interfaces
 - tests for repo-side integration code
 - future debugging once protocol traces and logs are available
+- the live-loop interfaces that sit above the bridge
 
 ### User responsibilities
 
@@ -57,12 +56,15 @@ The user is responsible for:
    snapshots, action requests, and trajectory records.
 5. `src/sts_ironclad_rl/integration/logger.py` writes traces for replay,
    debugging, and later training or evaluation workflows.
-6. A future agent consumes bridge outputs and emits legal actions through the
-   same bridge interfaces.
+6. `src/sts_ironclad_rl/live/observation.py` encodes snapshots for policies.
+7. `src/sts_ironclad_rl/live/actions.py` validates legal actions and maps them
+   into bridge commands.
+8. `src/sts_ironclad_rl/live/rollout.py` drives the shared rollout loop used by
+   evaluation and collection entrypoints.
 
 Data flow:
 
-`game -> CommunicationMod/equivalent -> Python bridge -> trajectory logger -> future agent/debug tooling`
+`game -> CommunicationMod/equivalent -> Python bridge -> observation encoder -> policy -> action contract -> command -> replay + trace logging`
 
 ## Component Roles
 
@@ -106,6 +108,19 @@ The first smoke test target is intentionally small:
 Success here proves the bridge can observe the game, issue a command, and
 record the resulting transition.
 
+## Layer Above The Bridge
+
+The bridge remains the lowest Python-facing boundary. The layer above it now
+contains:
+
+- an `ObservationEncoder` that turns `GameStateSnapshot` into stable
+  policy-facing inputs
+- an `ActionContract` that validates legal actions and maps them to
+  `ActionCommand`
+- a concrete `LiveEpisodeRunner` that implements the `RolloutRunner` contract
+- structured replay serialization that supplements the raw protocol trace
+- evaluation and collection entrypoints that reuse the same rollout path
+
 ## Local Setup Responsibilities
 
 This repository does not claim to finish host-specific setup. Local setup work
@@ -127,11 +142,11 @@ The repository-side deliverables for this phase are:
 - a live-game bridge design document
 - typed message contracts
 - bridge scaffolding with explicit lifecycle boundaries
-- trace logging interfaces
+- live observation, action, rollout, replay, policy, and evaluation modules
 - tests that validate repo-side structure and serialization
 
-This phase does not implement game mechanics, a simulator, or a complete RL
-loop.
+This phase does not implement a full training stack or commit the repo to Gym
+or Gymnasium as the core abstraction.
 
 ## Assumptions And Unknowns
 
