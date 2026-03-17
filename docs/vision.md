@@ -2,9 +2,10 @@
 
 The goal of this project is to build a robust research environment for training reinforcement learning agents to play the Ironclad in *Slay the Spire*.
 
-The primary training substrate is a deterministic local combat simulator. A
-live-game bridge to Slay the Spire is maintained as a secondary validation and
-integration path, not as the core training environment.
+The primary near-term substrate is a live-game bridge to Slay the Spire through
+CommunicationMod or an equivalent mod interface. Deterministic local combat code
+is still useful for tests and offline reasoning, but it is not the core
+abstraction for the next phase.
 
 We aim to:
 
@@ -12,6 +13,7 @@ We aim to:
 - Support multiple RL algorithms and model architectures.
 - Make it easy to run and compare experiments via configuration.
 - Encourage good software engineering practices (tests, CI, documentation).
+- Build a custom live-game RL loop rather than centering Gym or Gymnasium.
 
 ### Long-Term Objectives
 

@@ -4,15 +4,14 @@
 Set up GitHub, Codex, Cursor, CI, AGENTS.md, issue templates, and n8n workflows.
 
 ## Milestone 1
-Deterministic single-combat environment for training, with seeded setup, legal
-action masking, and smoke coverage. Live-game bridge work remains secondary and
-supports validation/integration rather than the primary training path.
+Live-game bridge and control-loop foundation, including CommunicationMod
+integration, typed snapshots, action mapping, and replay-oriented logging.
 
 ## Milestone 2
-Baseline bots: random, greedy damage, greedy defense, heuristic.
+Observation encoding and action-contract stabilization for live-game policies.
 
 ## Milestone 3
-Fixed-seed benchmark harness and reporting.
+Rollout runner, replay readers, and evaluation/reporting harnesses.
 
 ## Milestone 4
-First learning pipeline.
+First custom live-game policy-training and data-collection pipeline.
