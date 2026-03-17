@@ -16,10 +16,26 @@ experimentation substrate for data collection.
 
 ### What It Does Not Do Yet
 
-- no RL optimizer, replay buffer sampler, or gradient-based learner
+- no end-to-end RL optimizer or trainer loop
 - no simulator-first training loop
-- no checkpoint management or model registry
+- no model registry beyond lightweight checkpoint helpers
 - no claim that end-to-end agent training exists today
+
+### Masked-DQN Baseline Components
+
+The training package now includes the first reusable learner-core pieces for a
+masked DQN baseline:
+
+- `ReplayBuffer`: bounded in-memory storage for learner transitions with random
+  tensor batch sampling over `(state, action_index, reward, next_state, done, mask)`
+- `MaskedDQN`: a small PyTorch MLP that consumes the frozen 93-feature learner
+  vector and emits 61 Q-values aligned to the frozen learner action indices
+- mask-aware action selection helpers that only choose legal actions and fall
+  back safely to `END_TURN` when a mask is malformed or degenerate
+- lightweight checkpoint save/load helpers for model weights plus metadata
+
+PyTorch is the first ML-side dependency in the repo because these baseline
+components need a real tensor and module implementation for the trainer layer.
 
 ### Intended Extension Path
 
