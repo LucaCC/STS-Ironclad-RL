@@ -28,6 +28,73 @@ class ActionDecision:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class ReplayEntry:
+    """Structured replay record for one live rollout step."""
+
+    session_id: str
+    step_index: int
+    observation: EncodedObservation
+    action: ActionDecision | None = None
+    command: ActionCommand | None = None
+    reward: float | None = None
+    terminal: bool = False
+    outcome: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EpisodeFailure:
+    """Structured failure or interruption information for one episode."""
+
+    kind: str
+    message: str
+    step_index: int
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class RolloutResult:
+    """Outcome of a single live rollout or bounded session slice."""
+
+    session_id: str
+    entries: tuple[ReplayEntry, ...]
+    terminal: bool
+    step_count: int
+    outcome: str | None = None
+    failure: EpisodeFailure | None = None
+    total_reward: float | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EvaluationCase:
+    """Named evaluation scenario for a live rollout batch."""
+
+    name: str
+    max_steps: int | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class EvaluationSummary:
+    """Aggregate evaluation output built from rollout results."""
+
+    policy_name: str
+    case_name: str
+    episode_count: int
+    terminal_episode_count: int
+    interruption_count: int
+    outcome_counts: Mapping[str, int]
+    failure_counts: Mapping[str, int]
+    action_counts: Mapping[str, int]
+    mean_steps: float
+    mean_total_reward: float | None = None
+    mean_final_score: float | None = None
+    mean_final_floor: float | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+
 class ObservationEncoder(Protocol):
     """Translate raw bridge snapshots into policy-facing observations."""
 
@@ -45,6 +112,13 @@ class ActionContract(Protocol):
         """Translate one policy decision into a bridge action command."""
 
 
+class ReplaySink(Protocol):
+    """Write structured replay records for later analysis."""
+
+    def log(self, entry: ReplayEntry) -> None:
+        """Persist one replay entry."""
+
+
 class Policy(Protocol):
     """Minimal policy contract for live-game decisions."""
 
@@ -52,6 +126,18 @@ class Policy(Protocol):
 
     def select_action(self, observation: EncodedObservation) -> ActionDecision:
         """Choose one action for the provided encoded observation."""
+
+
+class RolloutRunner(Protocol):
+    """Run the bridge-facing control loop for one policy."""
+
+    def run_episode(
+        self,
+        *,
+        policy: Policy,
+        evaluation_case: EvaluationCase | None = None,
+    ) -> RolloutResult:
+        """Run one live episode or bounded session slice."""
 
 
 @dataclass(frozen=True)

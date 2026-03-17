@@ -36,6 +36,9 @@ for agent training loops.
   around an injected transport implementation.
 - `src/sts_ironclad_rl/integration/logger.py`: JSONL trace logging for later
   debugging, evaluation, and simulator cross-checks.
+- `src/sts_ironclad_rl/live/`: Bridge-facing observation encoding, action
+  mapping, baseline policies, rollout execution, and lightweight evaluation
+  utilities for CommunicationMod-driven runs.
 - Deterministic setup should flow through explicit seed arguments rather than hidden global RNG state.
 - State transitions should be expressed as pure functions that return new state objects where practical.
 

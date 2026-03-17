@@ -1,4 +1,4 @@
-"""Live-game observation, action, and policy helpers."""
+"""Live-game observation, action, policy, rollout, and evaluation helpers."""
 
 from .actions import (
     ChooseAction,
@@ -17,10 +17,25 @@ from .contracts import (
     ActionContract,
     ActionDecision,
     EncodedObservation,
+    EpisodeFailure,
+    EvaluationCase,
+    EvaluationSummary,
     ObservationEncoder,
     Policy,
     RawStateObservationEncoder,
+    ReplayEntry,
+    ReplaySink,
+    RolloutResult,
+    RolloutRunner,
     SnapshotActionContract,
+)
+from .evaluation import (
+    BatchEvaluationResult,
+    PolicyEvaluator,
+    format_evaluation_summary,
+    summarize_rollouts,
+    summary_to_dict,
+    summary_to_json,
 )
 from .observation import (
     SCHEMA_VERSION,
@@ -33,11 +48,14 @@ from .observation import (
     PlayerObservation,
 )
 from .policies import RandomLegalPolicy, SimpleHeuristicPolicy
+from .rollout import BridgeDisconnectError, LiveEpisodeRunner, RunnerConfig
 
 __all__ = [
     "ActionContract",
     "ActionDecision",
+    "BatchEvaluationResult",
     "BridgeObservationEncoder",
+    "BridgeDisconnectError",
     "CardObservation",
     "ChooseAction",
     "CombatObservation",
@@ -45,6 +63,10 @@ __all__ = [
     "EncodedObservation",
     "EndTurnAction",
     "EnemyObservation",
+    "EpisodeFailure",
+    "EvaluationCase",
+    "EvaluationSummary",
+    "LiveEpisodeRunner",
     "LeaveAction",
     "LiveAction",
     "LiveActionType",
@@ -52,15 +74,25 @@ __all__ = [
     "MonsterTarget",
     "ObservationEncoder",
     "ObservationLayout",
+    "PolicyEvaluator",
     "PlayCardAction",
     "PlayerObservation",
     "Policy",
     "ProceedAction",
     "RandomLegalPolicy",
     "RawStateObservationEncoder",
+    "ReplayEntry",
+    "ReplaySink",
+    "RolloutResult",
+    "RolloutRunner",
+    "RunnerConfig",
     "SCHEMA_VERSION",
     "SimpleHeuristicPolicy",
     "SnapshotActionContract",
     "action_from_id",
     "action_to_id",
+    "format_evaluation_summary",
+    "summarize_rollouts",
+    "summary_to_dict",
+    "summary_to_json",
 ]
