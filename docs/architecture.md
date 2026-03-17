@@ -1,51 +1,57 @@
 ## Architecture
 
-This document outlines the intended high-level architecture for the project.
+This document outlines the current high-level architecture for the project.
 
-## Milestone 1 Target
+## Current Direction
 
-Milestone 1 is centered on a deterministic single-combat substrate for RL
-training. The main implementation target is a local environment with explicit
-seeding, testable combat state transitions, and a stepping interface suitable
-for agent training loops.
+The active milestone is live-game-first through CommunicationMod. The main
+implementation target is a bridge-backed control loop around the real game,
+with narrow typed contracts for observations, actions, rollout logging, and
+evaluation.
 
 ### Top-Level Layout
 
-- `src/sts_ironclad_rl/env/`: Deterministic environment wrappers and interfaces for
-  fast local RL iteration.
-- `src/sts_ironclad_rl/integration/`: Live-game bridge contracts, session
-  lifecycle, and trajectory logging for real-game validation.
-- `src/sts_ironclad_rl/agents/`: Policy and value function implementations.
-- `src/sts_ironclad_rl/training/`: Training loops, replay buffers, and
-  optimization logic.
-- `src/sts_ironclad_rl/evaluation/`: Evaluation harnesses and reporting helpers.
+- `src/sts_ironclad_rl/integration/`: Bridge protocol, session lifecycle, and
+  raw trajectory logging for CommunicationMod-facing integration.
+- `src/sts_ironclad_rl/live/`: Live-game observation and action contracts plus
+  rollout-facing interfaces that sit above the bridge.
+- `src/sts_ironclad_rl/agents/`: Future policy implementations that target the
+  live contracts.
+- `src/sts_ironclad_rl/training/`: Future rollout and training code built on
+  the same live control path.
+- `src/sts_ironclad_rl/evaluation/`: Future evaluation harnesses built on the
+  live rollout path.
 - `src/sts_ironclad_rl/utils/`: Shared utilities (logging, seeding, metrics,
   etc.).
 
-### Current Environment Foundation
+### Current Live Foundation
 
-- `src/sts_ironclad_rl/env/state.py`: Immutable combat state primitives and seed-driven setup helpers.
-- `src/sts_ironclad_rl/env/combat.py`: Deterministic combat transition core for the milestone 1 action set.
-- `src/sts_ironclad_rl/env/encoding.py`: Stable action ordering and flat observation encodings for training.
-- `src/sts_ironclad_rl/env/training.py`: Thin wrapper that exposes the combat core through `reset` and `step`.
-- `src/sts_ironclad_rl/training/`: Lightweight rollout and trainer scaffolding
-  for seeded baseline episodes without committing to an RL library yet.
 - `src/sts_ironclad_rl/integration/protocol.py`: Typed bridge message contracts
   for host-provided game state, action requests, and trajectory records.
 - `src/sts_ironclad_rl/integration/bridge.py`: Python-side bridge lifecycle
   around an injected transport implementation.
 - `src/sts_ironclad_rl/integration/logger.py`: JSONL trace logging for later
   debugging, evaluation, and simulator cross-checks.
-- Deterministic setup should flow through explicit seed arguments rather than hidden global RNG state.
-- State transitions should be expressed as pure functions that return new state objects where practical.
+- `src/sts_ironclad_rl/live/contracts.py`: Policy-facing observation, action,
+  replay, and rollout interfaces.
+- `src/sts_ironclad_rl/live/actions.py`: Canonical live actions, legality
+  helpers, and bridge-command mapping.
+- `src/sts_ironclad_rl/live/replay.py`: Structured replay logging that keeps
+  encoded observations and mapped commands easy to inspect without replacing the
+  raw bridge trace.
+- `src/sts_ironclad_rl/live/observation.py`: Typed observation parsing plus a
+  stable flat/vector encoding layer built from bridge snapshots.
+- Deterministic local environment code may remain for narrow testing support,
+  but it is not the public control interface for this milestone.
+
+Observation contents and invariants are documented in
+`docs/live_observation_contract.md`.
 
 ## Track Separation
 
-- Local deterministic environment: the primary training path and the default
-  substrate for RL experimentation.
-- Live-game bridge via CommunicationMod: a secondary validation and integration
-  path used to compare assumptions against the real game and maintain smoke
-  coverage.
+- Live-game bridge via CommunicationMod: the primary implementation path.
+- Local deterministic environment: secondary support code for narrow tests and
+  offline analysis only.
 
 ### Key Design Principles
 
