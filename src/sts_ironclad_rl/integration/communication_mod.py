@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import select
 import socket
 import sys
 import threading
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, TextIO
+from typing import Any, Callable, TextIO
 
 from .bridge import BridgeConfig, BridgeTransport
 from .protocol import ActionCommand, BridgeEnvelope, BridgeMessageType, GameStateSnapshot
@@ -18,12 +20,54 @@ from .protocol import ActionCommand, BridgeEnvelope, BridgeMessageType, GameStat
 DEFAULT_HELPER_HOST = "127.0.0.1"
 DEFAULT_HELPER_PORT = 8080
 DEFAULT_TIMEOUT_SECONDS = 5.0
+DEFAULT_MAX_DUPLICATE_SNAPSHOTS = 50
 STATE_POLL_COMMAND = "STATE"
+
+logger = logging.getLogger(__name__)
+SnapshotFingerprint = tuple[object, ...]
 
 
 def build_transport() -> BridgeTransport:
     """Return the default socket-backed transport for CommunicationMod."""
     return SocketBridgeTransport()
+
+
+def compute_snapshot_fingerprint(snapshot: GameStateSnapshot) -> SnapshotFingerprint:
+    """Build a deterministic fingerprint from stable combat fields only."""
+    combat_state = _mapping_or_empty(snapshot.raw_state.get("combat_state"))
+    player = _mapping_or_empty(combat_state.get("player"))
+    hand = _sequence_fingerprint(
+        combat_state.get("hand"),
+        lambda card: (
+            _string_or_none(card.get("card_id")) or _string_or_none(card.get("id")),
+            _bool_or_none(card.get("is_playable")),
+        ),
+    )
+    monsters = _sequence_fingerprint(
+        combat_state.get("monsters"),
+        lambda monster: (
+            _optional_int(monster, "current_hp"),
+            _optional_int(monster, "block"),
+            _string_or_none(monster.get("intent")),
+            _bool_or_none(monster.get("is_alive")),
+            _bool_or_none(monster.get("is_targetable")),
+        ),
+    )
+
+    return (
+        snapshot.screen_state,
+        _string_or_none(snapshot.raw_state.get("room_phase")),
+        _optional_int(combat_state, "turn"),
+        snapshot.floor,
+        snapshot.act,
+        (
+            _optional_int(player, "current_hp"),
+            _optional_int(player, "block"),
+            _optional_int(player, "energy"),
+        ),
+        hand,
+        monsters,
+    )
 
 
 def translate_comm_message_to_snapshot(
@@ -94,8 +138,9 @@ class SocketBridgeTransport(BridgeTransport):
 
     def __init__(self) -> None:
         self._socket: socket.socket | None = None
-        self._reader: TextIO | None = None
         self._send_lock = threading.Lock()
+        self._receive_buffer = ""
+        self._timeout_seconds = DEFAULT_TIMEOUT_SECONDS
 
     def open(self, config: BridgeConfig) -> None:
         if self._socket is not None:
@@ -104,18 +149,15 @@ class SocketBridgeTransport(BridgeTransport):
             (config.host, config.port),
             timeout=config.connect_timeout_seconds,
         )
-        connection.settimeout(config.connect_timeout_seconds)
+        connection.setblocking(False)
         self._socket = connection
-        self._reader = connection.makefile("r", encoding="utf-8")
+        self._timeout_seconds = config.receive_timeout_seconds
+        self._receive_buffer = ""
 
     def close(self) -> None:
-        reader = self._reader
-        self._reader = None
-        if reader is not None:
-            reader.close()
-
         connection = self._socket
         self._socket = None
+        self._receive_buffer = ""
         if connection is not None:
             connection.close()
 
@@ -126,28 +168,43 @@ class SocketBridgeTransport(BridgeTransport):
             connection.sendall(payload.encode("utf-8"))
 
     def receive(self) -> BridgeEnvelope | None:
-        reader = self._reader
-        if reader is None:
-            msg = "transport is not open"
-            raise RuntimeError(msg)
+        connection = self._require_socket()
+        if "\n" in self._receive_buffer:
+            return self._consume_buffered_envelope()
 
         try:
-            line = reader.readline()
-        except TimeoutError:
+            readable, _, _ = select.select([connection], [], [], self._timeout_seconds)
+        except OSError:
+            return None
+        if not readable:
+            return None
+
+        try:
+            chunk = connection.recv(4096)
+        except BlockingIOError:
             return None
         except OSError as exc:
-            if isinstance(exc, socket.timeout):
+            if exc.errno in {35, 60}:
                 return None
             raise
-        if not line:
+        if not chunk:
             return None
-        return _envelope_from_dict(json.loads(line))
+
+        self._receive_buffer += chunk.decode("utf-8")
+        if "\n" not in self._receive_buffer:
+            return None
+        return self._consume_buffered_envelope()
 
     def _require_socket(self) -> socket.socket:
         if self._socket is None:
             msg = "transport is not open"
             raise RuntimeError(msg)
         return self._socket
+
+    def _consume_buffered_envelope(self) -> BridgeEnvelope:
+        line, _, remainder = self._receive_buffer.partition("\n")
+        self._receive_buffer = remainder
+        return _envelope_from_dict(json.loads(line))
 
 
 @dataclass
@@ -166,11 +223,13 @@ class CommunicationModBridgeHelper:
         host: str = DEFAULT_HELPER_HOST,
         port: int = DEFAULT_HELPER_PORT,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        max_duplicate_snapshots: int = DEFAULT_MAX_DUPLICATE_SNAPSHOTS,
         stdout: TextIO | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.timeout_seconds = timeout_seconds
+        self.max_duplicate_snapshots = max_duplicate_snapshots
         self._stdout = sys.stdout if stdout is None else stdout
         self._state_lock = threading.Lock()
         self._state_changed = threading.Condition(self._state_lock)
@@ -181,6 +240,10 @@ class CommunicationModBridgeHelper:
         self._latest_snapshot_version = 0
         self._message_version = 0
         self._required_snapshot_version = 0
+        self._last_delivered_fingerprint: SnapshotFingerprint | None = None
+        self._post_action_reference_fingerprint: SnapshotFingerprint | None = None
+        self._post_action_duplicate_count = 0
+        self._post_action_deadline = 0.0
         self._pending_action: _PendingAction | None = None
 
     def handle_envelope(self, envelope: BridgeEnvelope) -> BridgeEnvelope | None:
@@ -192,6 +255,16 @@ class CommunicationModBridgeHelper:
                 raise ValueError(msg)
             with self._state_changed:
                 self._session_id = session_id
+                # Drop cached snapshots from the previous client session so the
+                # next state request blocks for fresh CommunicationMod data.
+                self._latest_snapshot = None
+                self._latest_snapshot_version = 0
+                self._required_snapshot_version = self._message_version + 1
+                self._last_delivered_fingerprint = None
+                self._post_action_reference_fingerprint = None
+                self._post_action_duplicate_count = 0
+                self._post_action_deadline = 0.0
+                self._pending_action = None
                 self._state_changed.notify_all()
             return None
 
@@ -222,6 +295,7 @@ class CommunicationModBridgeHelper:
                 if snapshot is not None:
                     self._latest_snapshot = snapshot
                     self._latest_snapshot_version = self._message_version
+                    self._record_duplicate_snapshot_if_needed(snapshot)
 
             command = STATE_POLL_COMMAND
             pending_action = self._pending_action
@@ -230,6 +304,11 @@ class CommunicationModBridgeHelper:
                 pending_action.dispatched = True
                 pending_action.dispatch_message_version = self._message_version
                 self._required_snapshot_version = self._message_version + 1
+                self._post_action_reference_fingerprint = (
+                    self._resolve_action_reference_fingerprint()
+                )
+                self._post_action_duplicate_count = 0
+                self._post_action_deadline = time.monotonic() + self.timeout_seconds
                 self._pending_action = None
 
             self._state_changed.notify_all()
@@ -264,7 +343,40 @@ class CommunicationModBridgeHelper:
                     snapshot is not None
                     and self._latest_snapshot_version >= self._required_snapshot_version
                 ):
-                    return snapshot
+                    snapshot_fingerprint = compute_snapshot_fingerprint(snapshot)
+                    reference_fingerprint = self._post_action_reference_fingerprint
+                    if (
+                        reference_fingerprint is None
+                        or snapshot_fingerprint != reference_fingerprint
+                    ):
+                        if reference_fingerprint is not None:
+                            logger.info(
+                                "snapshot_changed_after_action",
+                                extra={
+                                    "event": "snapshot_changed_after_action",
+                                    "duplicate_count": self._post_action_duplicate_count,
+                                    "session_id": snapshot.session_id,
+                                },
+                            )
+                        self._last_delivered_fingerprint = snapshot_fingerprint
+                        self._post_action_reference_fingerprint = None
+                        self._post_action_duplicate_count = 0
+                        self._post_action_deadline = 0.0
+                        return snapshot
+                    if self._should_fallback_to_latest_snapshot():
+                        logger.warning(
+                            "post_action_snapshot_wait_fallback",
+                            extra={
+                                "event": "post_action_snapshot_wait_fallback",
+                                "duplicate_count": self._post_action_duplicate_count,
+                                "session_id": snapshot.session_id,
+                            },
+                        )
+                        self._last_delivered_fingerprint = snapshot_fingerprint
+                        self._post_action_reference_fingerprint = None
+                        self._post_action_duplicate_count = 0
+                        self._post_action_deadline = 0.0
+                        return snapshot
 
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -364,6 +476,39 @@ class CommunicationModBridgeHelper:
         with self._stdout_lock:
             print(command, file=self._stdout, flush=True)
 
+    def _record_duplicate_snapshot_if_needed(self, snapshot: GameStateSnapshot) -> None:
+        reference_fingerprint = self._post_action_reference_fingerprint
+        if reference_fingerprint is None or self._message_version < self._required_snapshot_version:
+            return
+
+        snapshot_fingerprint = compute_snapshot_fingerprint(snapshot)
+        if snapshot_fingerprint != reference_fingerprint:
+            return
+
+        self._post_action_duplicate_count += 1
+        logger.info(
+            "duplicate_snapshot_ignored",
+            extra={
+                "event": "duplicate_snapshot_ignored",
+                "duplicate_count": self._post_action_duplicate_count,
+                "message_version": self._message_version,
+                "session_id": snapshot.session_id,
+            },
+        )
+
+    def _resolve_action_reference_fingerprint(self) -> SnapshotFingerprint | None:
+        if self._last_delivered_fingerprint is not None:
+            return self._last_delivered_fingerprint
+        latest_snapshot = self._latest_snapshot
+        if latest_snapshot is None:
+            return None
+        return compute_snapshot_fingerprint(latest_snapshot)
+
+    def _should_fallback_to_latest_snapshot(self) -> bool:
+        if self._post_action_duplicate_count >= self.max_duplicate_snapshots:
+            return True
+        return self._post_action_deadline > 0.0 and time.monotonic() >= self._post_action_deadline
+
 
 def build_helper_parser() -> argparse.ArgumentParser:
     """Build the CLI parser for the CommunicationMod helper process."""
@@ -423,6 +568,38 @@ def _is_in_combat(*, message: Mapping[str, Any], game_state: Mapping[str, Any]) 
     if game_state.get("room_phase") == "COMBAT":
         return True
     return isinstance(game_state.get("combat_state"), Mapping)
+
+
+def _mapping_or_empty(value: Any) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return value
+    return {}
+
+
+def _sequence_fingerprint(
+    value: Any,
+    item_builder: Callable[[Mapping[str, Any]], tuple[object, ...]],
+) -> tuple[tuple[object, ...], ...]:
+    if not isinstance(value, list):
+        return ()
+    fingerprint_items: list[tuple[object, ...]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            continue
+        fingerprint_items.append(item_builder(item))
+    return tuple(fingerprint_items)
+
+
+def _string_or_none(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+    return None
+
+
+def _bool_or_none(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    return None
 
 
 def _required_int(arguments: Mapping[str, Any], key: str) -> int:
