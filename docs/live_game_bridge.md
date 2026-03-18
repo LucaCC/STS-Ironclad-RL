@@ -148,18 +148,99 @@ The repository-side deliverables for this phase are:
 This phase does not implement a full training stack or commit the repo to Gym
 or Gymnasium as the core abstraction.
 
+## Concrete CommunicationMod Bridge
+
+The current production path uses a small helper process launched by
+CommunicationMod itself. The helper:
+
+- prints `ready` so CommunicationMod keeps the child process alive
+- reads JSON payloads from stdin
+- translates them into the repo's `GameStateSnapshot` bridge payload
+- exposes a local TCP socket for repo-side clients
+- writes either a queued live action or a safe `STATE` poll command to stdout
+
+This keeps the repo-side training and evaluation scripts on the existing
+`BridgeTransport` abstraction while matching the proven CommunicationMod
+child-process protocol.
+
+### CommunicationMod config
+
+Set CommunicationMod's `command=` entry to the helper process:
+
+```text
+command=python /Users/lucacc/Desktop/STS/STS-Ironclad-RL/scripts/communication_mod_bridge_helper.py --host 127.0.0.1 --port 8080
+```
+
+If you choose a different port, pass the same `--host` and `--port` values to
+the repo scripts.
+
+### Repo-side transport factory
+
+Use the concrete socket transport factory:
+
+```text
+sts_ironclad_rl.integration.communication_mod:build_transport
+```
+
+### Console commands
+
+Benchmark:
+
+```bash
+python scripts/run_live_benchmark.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --config configs/benchmarks/baseline_eval.json
+```
+
+Training:
+
+```bash
+python scripts/train_live_dqn.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --config configs/training/masked_dqn_baseline.json
+```
+
+Evaluation:
+
+```bash
+python scripts/evaluate_live_policy.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --policy simple_heuristic \
+  --episodes 3
+```
+
+### Host And Port Behavior
+
+- the helper binds the requested local host and port and waits for a repo-side
+  TCP client
+- the repo-side `SocketBridgeTransport` connects to that listener using the
+  existing `BridgeConfig`
+- one helper should be paired with one local game instance
+- one live script should be connected to a helper at a time
+
+### Known Limitations
+
+- the helper currently translates only the action set used by the existing live
+  rollout path: `play`, `end`, `choose`, `proceed`, and `leave`
+- helper-side idle polling is implemented with `STATE`, which keeps the
+  CommunicationMod request/response loop alive but may produce extra traffic
+- the bridge assumes the current observed CommunicationMod payload shape,
+  especially `available_commands`, `ready_for_command`, and nested `game_state`
+- disconnect handling is intentionally minimal: timeout or socket loss bubbles
+  up to the existing rollout interruption path
+
 ## Assumptions And Unknowns
 
-- The exact transport used by CommunicationMod may be sockets, stdin or stdout,
-  files, or another mod-exposed mechanism. The repo should keep that boundary
-  abstract until a real host integration is tested.
-- The exact schema exported by the game-side mod stack is not yet verified on a
-  local machine. Protocol fields in this repo should therefore stay conservative
-  and extensible.
 - Some game actions may need additional context or IDs beyond simple action
   names.
 - The boundary between full run-level state and combat-only state still needs to
-  be confirmed during real integration.
+  be confirmed during broader real-game validation.
 
 ## Risks
 

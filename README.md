@@ -17,8 +17,8 @@ The current milestone is the first trainable agent path:
 - reproducible artifact layouts for collection runs, training runs, and
   benchmark comparisons
 
-The repo does not yet ship a concrete CommunicationMod transport, a
-simulator-first training path, or Rainbow-style DQN upgrades.
+The repo now ships a minimal live CommunicationMod socket bridge. It still does
+not ship a simulator-first training path or Rainbow-style DQN upgrades.
 
 ## Recommended Workflow
 
@@ -37,7 +37,7 @@ Run the first baseline benchmark:
 
 ```bash
 python scripts/run_live_benchmark.py \
-  --transport your_bridge_module:build_transport \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
   --config configs/benchmarks/baseline_eval.json
 ```
 
@@ -45,7 +45,7 @@ Train the first masked-DQN baseline:
 
 ```bash
 python scripts/train_live_dqn.py \
-  --transport your_bridge_module:build_transport \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
   --config configs/training/masked_dqn_baseline.json \
   --output-dir artifacts/training/masked_dqn_baseline
 ```
@@ -54,7 +54,7 @@ Evaluate the trained checkpoint directly:
 
 ```bash
 python scripts/evaluate_live_policy.py \
-  --transport your_bridge_module:build_transport \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
   --policy dqn_checkpoint:artifacts/training/masked_dqn_baseline/checkpoints/checkpoint_final.pt \
   --policy-name masked_dqn \
   --episodes 3
@@ -64,9 +64,59 @@ Compare the checkpoint against the baselines:
 
 ```bash
 python scripts/run_live_benchmark.py \
-  --transport your_bridge_module:build_transport \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
   --config configs/benchmarks/masked_dqn_vs_baselines.json
 ```
+
+## CommunicationMod Live Bridge
+
+Configure CommunicationMod to launch the helper process through its `command=`
+setting:
+
+```text
+command=python /Users/lucacc/Desktop/STS/STS-Ironclad-RL/scripts/communication_mod_bridge_helper.py --host 127.0.0.1 --port 8080
+```
+
+Then run the repo-side entrypoints from a separate terminal:
+
+```bash
+python scripts/run_live_benchmark.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --config configs/benchmarks/baseline_eval.json
+```
+
+```bash
+python scripts/train_live_dqn.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --config configs/training/masked_dqn_baseline.json
+```
+
+```bash
+python scripts/evaluate_live_policy.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --policy simple_heuristic \
+  --episodes 3
+```
+
+Host and port must match on both sides. The helper binds a local TCP listener
+and translates between the repo's `BridgeTransport` envelopes and
+CommunicationMod's launched child-process stdin/stdout protocol.
+
+Current limitations:
+
+- one local helper process per game instance and one active repo client per helper
+- the helper uses `STATE` as its idle poll command, so live runs depend on that
+  CommunicationMod command remaining available
+- only the current action set is translated: `play`, `end`, `choose`,
+  `proceed`, and `leave`
+- unsupported screens or schema drift still require manual validation against
+  the live game
 
 ## Key Docs
 
