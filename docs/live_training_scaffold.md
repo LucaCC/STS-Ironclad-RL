@@ -1,53 +1,38 @@
 ## Live Training Scaffold
 
-This scaffold turns the existing live rollout path into a lightweight
-experimentation substrate for data collection.
+The training package now has two coherent layers built on the same live rollout path.
 
-### What It Does Today
+## Collection Layer
 
-- defines explicit `ExperimentSpec` configs for live collection runs
-- runs repeated episodes through the existing `RolloutRunner` contract
-- writes stable run artifacts under `artifacts/experiments/<experiment>/<run_id>/`
-- saves replay-backed `trajectory.jsonl` and per-episode `episodes.jsonl`
-- records `config.json`, `metadata.json`, and `summary.json` for reproducibility
-- leaves policy selection open so current `simple_heuristic` and
-  `random_legal` policies can be used
-- exposes a matching CLI entrypoint through `scripts/run_live_experiment.py`
+`ExperimentRunner` exists for replay-backed collection runs:
 
-### What It Does Not Do Yet
+- config source: `configs/experiments/*.json`
+- artifact root: `artifacts/experiments/<experiment>/<run_id>/`
+- outputs: `config.json`, `metadata.json`, `summary.json`, `episodes.jsonl`, `trajectory.jsonl`
 
-- no RL optimizer, replay buffer sampler, or gradient-based learner
-- no simulator-first training loop
-- no checkpoint management or model registry
-- no claim that end-to-end agent training exists today
+## Trainable Baseline Layer
 
-### Intended Extension Path
+`DQNTrainer` is the first actual trainable baseline:
 
-- learned policies can plug in through the same `Policy` contract or a
-  `PolicyProvider` that resolves policies from checkpoints/configs
-- future training code should keep using `ExperimentRunner` or its artifact
-  conventions instead of adding a separate execution path
-- dataset processing can build directly on `trajectory.jsonl` and
-  `episodes.jsonl` without bypassing live rollout/replay contracts
+- config source: `configs/training/masked_dqn_baseline.json`
+- artifact root: `artifacts/training/masked_dqn_baseline/`
+- outputs: `config.json`, `metrics.jsonl`, `evaluations.jsonl`, `summary.json`, `checkpoints/`
 
-### Artifact Structure
+The trainer reuses the shared rollout path, the frozen learner contract, and
+the same policy/evaluation helpers used elsewhere in the repo.
 
-Each run writes:
+## Non-Goals
 
-- `config.json`: the validated experiment spec
-- `metadata.json`: run timing, policy, fingerprint, and environment metadata
-- `summary.json`: aggregate counts and rollout-level summary metrics
-- `episodes.jsonl`: one line per episode result
-- `trajectory.jsonl`: one line per replay entry, keyed by `episode_index`
+- no second training stack
+- no simulator-first path
+- no new DQN-family features in this milestone
 
-### Example Config
+## Extension Direction
 
-See `configs/experiments/random_legal_collection.json`.
+Future DQN-family work should extend:
 
-### Example Command
+- `MaskedDQNConfig` and `MaskedDQN`
+- replay sampling behavior
+- target computation in `DQNTrainer`
 
-```bash
-python scripts/run_live_experiment.py \
-  --transport your_bridge_module:build_transport \
-  --config configs/experiments/random_legal_collection.json
-```
+without changing the shared rollout or learner-contract foundations.

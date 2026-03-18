@@ -124,6 +124,15 @@ def format_evaluation_summary(summary: EvaluationSummary) -> str:
             f"interrupted={summary.interruption_count} "
             f"mean_steps={summary.mean_steps:.2f}"
         ),
+        (
+            "rates="
+            f"completion:{_safe_rate(summary.terminal_episode_count, summary.episode_count):.2f} "
+            f"interruption:{_safe_rate(summary.interruption_count, summary.episode_count):.2f} "
+            "victory:"
+            f"{_safe_rate(summary.outcome_counts.get('victory', 0), summary.episode_count):.2f} "
+            "defeat:"
+            f"{_safe_rate(summary.outcome_counts.get('defeat', 0), summary.episode_count):.2f}"
+        ),
         f"outcomes={_format_counts(summary.outcome_counts)}",
         f"actions={_format_counts(summary.action_counts)}",
         f"failures={_format_counts(summary.failure_counts)}",
@@ -138,6 +147,14 @@ def format_evaluation_summary(summary: EvaluationSummary) -> str:
         proxy_parts.append(f"mean_final_floor={summary.mean_final_floor:.2f}")
     if proxy_parts:
         lines.append("proxies=" + " ".join(proxy_parts))
+
+    policy_parts: list[str] = []
+    if isinstance(summary.metadata.get("invalid_action_count"), int):
+        policy_parts.append(f"invalid_action_count={summary.metadata['invalid_action_count']}")
+    if isinstance(summary.metadata.get("mask_fallback_count"), int):
+        policy_parts.append(f"mask_fallback_count={summary.metadata['mask_fallback_count']}")
+    if policy_parts:
+        lines.append("policy_metrics=" + " ".join(policy_parts))
 
     return "\n".join(lines)
 

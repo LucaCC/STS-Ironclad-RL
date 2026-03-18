@@ -41,6 +41,7 @@ class BridgeConfig:
     host: str = "127.0.0.1"
     port: int = 8080
     connect_timeout_seconds: float = 5.0
+    receive_timeout_seconds: float = 60.0
 
 
 @dataclass(frozen=True)

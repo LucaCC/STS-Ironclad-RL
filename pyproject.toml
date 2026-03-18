@@ -9,6 +9,7 @@ description = "Reinforcement-learning research stack for Slay the Spire."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "LucaCC" }]
+dependencies = ["torch"]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
