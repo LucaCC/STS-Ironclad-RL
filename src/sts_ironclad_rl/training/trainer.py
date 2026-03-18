@@ -24,6 +24,7 @@ from ..live import (
     RolloutRunner,
     summary_to_dict,
 )
+from .artifacts import create_dqn_trainer_run_layout
 from .dqn import (
     MaskedDQN,
     MaskedDQNConfig,
@@ -349,7 +350,7 @@ class DQNTrainer:
     def train(self, *, output_dir: Path | None = None) -> DQNTrainingResult:
         """Run the configured number of live episodes through the trainer loop."""
 
-        output_paths = _TrainerOutputPaths.create(output_dir) if output_dir is not None else None
+        output_paths = create_dqn_trainer_run_layout(output_dir) if output_dir is not None else None
         if output_paths is not None:
             _write_json(output_paths.config_path, self.config.to_dict())
 
@@ -405,7 +406,7 @@ class DQNTrainer:
                 )
 
         if output_paths is not None:
-            self.save_checkpoint(output_paths.checkpoints_dir / "checkpoint_final.pt")
+            self.save_checkpoint(output_paths.final_checkpoint_path)
             _write_json(output_paths.summary_path, self.training_summary())
 
         return DQNTrainingResult(
@@ -626,30 +627,6 @@ class DQNTrainer:
         self.optimizer.step()
         self.online_network.eval()
         return float(loss.item())
-
-
-@dataclass(frozen=True)
-class _TrainerOutputPaths:
-    root_dir: Path
-    config_path: Path
-    metrics_path: Path
-    evaluations_path: Path
-    summary_path: Path
-    checkpoints_dir: Path
-
-    @classmethod
-    def create(cls, root_dir: Path) -> _TrainerOutputPaths:
-        root_dir.mkdir(parents=True, exist_ok=True)
-        checkpoints_dir = root_dir / "checkpoints"
-        checkpoints_dir.mkdir(parents=True, exist_ok=True)
-        return cls(
-            root_dir=root_dir,
-            config_path=root_dir / "config.json",
-            metrics_path=root_dir / "metrics.jsonl",
-            evaluations_path=root_dir / "evaluations.jsonl",
-            summary_path=root_dir / "summary.json",
-            checkpoints_dir=checkpoints_dir,
-        )
 
 
 def should_sync_target_network(

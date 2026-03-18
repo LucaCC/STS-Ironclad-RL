@@ -8,18 +8,20 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from scripts._live_utils import (
+from sts_ironclad_rl.live import (
+    EvaluationCase,
+    PolicyEvaluator,
     build_live_episode_runner,
     instantiate_transport,
+    load_live_policy,
     load_object,
-    load_policy,
 )
-from sts_ironclad_rl.live import EvaluationCase, PolicyEvaluator
 from sts_ironclad_rl.training import (
     BenchmarkArtifactStore,
     build_comparison_report,
     format_comparison_report,
     load_benchmark_spec,
+    resolve_dqn_training_summary_path,
 )
 
 
@@ -73,7 +75,7 @@ def main() -> int:
     trainer_metrics_by_policy: dict[str, dict[str, object]] = {}
 
     for policy_spec in spec.policies:
-        policy = load_policy(
+        policy = load_live_policy(
             policy_spec.policy_ref,
             seed=policy_spec.seed,
             device=args.device,
@@ -111,7 +113,6 @@ def main() -> int:
                 },
             )
         summaries.append(summary)
-
         trainer_summary_path = _trainer_summary_path(policy_spec.policy_ref)
         if trainer_summary_path is not None and trainer_summary_path.exists():
             trainer_metrics_by_policy[policy_spec.policy_name] = json.loads(
@@ -138,7 +139,10 @@ def _trainer_summary_path(policy_ref: str) -> Path | None:
     if not policy_ref.startswith("dqn_checkpoint:"):
         return None
     checkpoint_path = Path(policy_ref.split(":", maxsplit=1)[1])
-    return checkpoint_path.parent.parent / "summary.json"
+    try:
+        return resolve_dqn_training_summary_path(checkpoint_path)
+    except ValueError:
+        return None
 
 
 if __name__ == "__main__":

@@ -7,16 +7,14 @@ import argparse
 import json
 from pathlib import Path
 
-from scripts._live_utils import (
-    build_live_episode_runner,
-    instantiate_transport,
-    load_object,
-    load_policy,
-)
 from sts_ironclad_rl.live import (
     EvaluationCase,
     PolicyEvaluator,
+    build_live_episode_runner,
     format_evaluation_summary,
+    instantiate_transport,
+    load_live_policy,
+    load_object,
     summary_to_dict,
 )
 
@@ -79,7 +77,7 @@ def main() -> int:
         raise SystemExit("--max-steps must be positive")
 
     transport_factory = load_object(args.transport)
-    policy = load_policy(
+    policy = load_live_policy(
         args.policy,
         seed=args.seed,
         device=args.device,

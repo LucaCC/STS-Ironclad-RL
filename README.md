@@ -1,93 +1,146 @@
 # Slay the Spire RL
 
 Reinforcement-learning research stack for Slay the Spire, centered on a
-live-game control loop for Ironclad combat via CommunicationMod.
+live-game-first Ironclad combat loop driven through CommunicationMod.
 
-The current implementation priority is the bridge to a real Slay the Spire
-process. Deterministic simulator code on `main` remains useful for tests and
-offline reasoning, but it is no longer the architectural center of the next
-milestone.
+The current milestone is the first trainable agent path:
 
-## Milestones
-- Milestone 0: repo, agents, CI, automation
-- Milestone 1: live-game-first bridge, rollout, replay, evaluation, and collection foundation
-- Milestone 2: first learning-agent branch on top of the live rollout path
+`live game -> rollout -> learner contract -> replay -> masked DQN training -> checkpoint -> evaluation -> benchmark comparison`
 
-## Current Focus
+## Current Status
 
-- Active milestone tracker: [docs/current_milestone.md](docs/current_milestone.md)
-- Architecture and integration direction: [docs/architecture.md](docs/architecture.md)
-- Live-game bridge plan: [docs/live_game_bridge.md](docs/live_game_bridge.md)
-- PR reconciliation and next workstreams: [docs/live_game_first_milestone.md](docs/live_game_first_milestone.md)
-- Live collection scaffold: [docs/live_training_scaffold.md](docs/live_training_scaffold.md)
-- Live benchmark workflow: [docs/live_benchmarks.md](docs/live_benchmarks.md)
-- Learner-side DQN contract: [docs/learner_contract.md](docs/learner_contract.md)
+- one shared live rollout path for collection, evaluation, and training
+- frozen learner contract with a 93-dim observation vector and 61-action space
+- replay-backed PyTorch masked-DQN baseline with default hidden sizes `(128, 128)`
+- benchmark workflow shared across `RandomLegalPolicy`, `SimpleHeuristicPolicy`,
+  and checkpoint-backed `MaskedDQNPolicy`
+- reproducible artifact layouts for collection runs, training runs, and
+  benchmark comparisons
 
-## Project Structure
+The repo now ships a minimal live CommunicationMod socket bridge. It still does
+not ship a simulator-first training path or Rainbow-style DQN upgrades.
 
-- `AGENTS.md`: Rules, code standards, and workflow expectations for contributors and AI agents.
-- `docs/`: Project vision, architecture, and roadmap documents.
-- `src/`: Source code for the RL environment, agents, and training loops.
-- `tests/`: Unit and integration tests.
-- `configs/`: Configuration files (hyperparameters, experiment setups, etc.).
-- `scripts/`: Utility scripts for training, evaluation, and data processing.
-- `tasks/`: Task templates and checklists.
-- `.github/workflows/`: CI configuration.
+## Recommended Workflow
 
-## Developer setup
+Install and validate the repo:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-pre-commit install
-```
-
-## Local workflow
-
-Run the same checks locally before opening a PR:
-
-```bash
-pre-commit run --all-files
-```
-
-### Commands
-
-```bash
 ruff format .
 ruff check .
 pytest -q
 ```
 
-Pre-commit runs:
+Run the first baseline benchmark:
 
-- `ruff format --check .`
-- `ruff check .`
-- `pytest -q`
+```bash
+python scripts/run_live_benchmark.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --config configs/benchmarks/baseline_eval.json
+```
 
-## Immediate Direction
+Train the first masked-DQN baseline:
 
-Near-term implementation should converge on these repo-level concepts:
+```bash
+python scripts/train_live_dqn.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --config configs/training/masked_dqn_baseline.json \
+  --output-dir artifacts/training/masked_dqn_baseline
+```
 
-- `LiveGameBridge` and `LiveGameBridgeSession` as the bridge-facing session and
-  control boundary
-- `ObservationEncoder` for transforming bridge snapshots into policy inputs
-- `ActionContract` for legal-action exposure and command mapping
-- `RolloutRunner` for episode execution against the live game
-- replay and structured logging for dataset generation, debugging, and audit
-- a minimal `Policy` interface and evaluation harness built on the same rollout
-  path
-- a lightweight experiment runner that reuses the same rollout contract for
-  live collection
+Evaluate the trained checkpoint directly:
 
-## Live Entry Points
+```bash
+python scripts/evaluate_live_policy.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --policy dqn_checkpoint:artifacts/training/masked_dqn_baseline/checkpoints/checkpoint_final.pt \
+  --policy-name masked_dqn \
+  --episodes 3
+```
 
-- Evaluate a built-in or custom policy against the live bridge:
-  `python scripts/evaluate_live_policy.py --transport package.module:build_transport --policy simple_heuristic --episodes 3`
-- Run a replay-backed collection config through the same rollout path:
-  `python scripts/run_live_experiment.py --transport package.module:build_transport --config configs/experiments/random_legal_collection.json`
-- Run the first baseline or DQN-vs-baselines benchmark workflow:
-  `python scripts/run_live_benchmark.py --transport package.module:build_transport --config configs/benchmarks/baseline_eval.json`
+Compare the checkpoint against the baselines:
 
-This repo intentionally does not adopt Gym or Gymnasium as the core abstraction
-for that loop.
+```bash
+python scripts/run_live_benchmark.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --config configs/benchmarks/masked_dqn_vs_baselines.json
+```
+
+## CommunicationMod Live Bridge
+
+Configure CommunicationMod to launch the helper process through its `command=`
+setting:
+
+```text
+command=python /Users/lucacc/Desktop/STS/STS-Ironclad-RL/scripts/communication_mod_bridge_helper.py --host 127.0.0.1 --port 8080
+```
+
+Then run the repo-side entrypoints from a separate terminal:
+
+```bash
+python scripts/run_live_benchmark.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --config configs/benchmarks/baseline_eval.json
+```
+
+```bash
+python scripts/train_live_dqn.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --config configs/training/masked_dqn_baseline.json
+```
+
+```bash
+python scripts/evaluate_live_policy.py \
+  --transport sts_ironclad_rl.integration.communication_mod:build_transport \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --policy simple_heuristic \
+  --episodes 3
+```
+
+Host and port must match on both sides. The helper binds a local TCP listener
+and translates between the repo's `BridgeTransport` envelopes and
+CommunicationMod's launched child-process stdin/stdout protocol.
+
+Current limitations:
+
+- one local helper process per game instance and one active repo client per helper
+- the helper uses `STATE` as its idle poll command, so live runs depend on that
+  CommunicationMod command remaining available
+- only the current action set is translated: `play`, `end`, `choose`,
+  `proceed`, and `leave`
+- unsupported screens or schema drift still require manual validation against
+  the live game
+
+## Key Docs
+
+- [docs/current_milestone.md](docs/current_milestone.md)
+- [docs/trainable_agent_milestone.md](docs/trainable_agent_milestone.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/live_game_first_milestone.md](docs/live_game_first_milestone.md)
+- [docs/learner_contract.md](docs/learner_contract.md)
+- [docs/live_benchmarks.md](docs/live_benchmarks.md)
+
+## Repo Layout
+
+- `src/sts_ironclad_rl/integration/`: bridge protocol and transport boundary
+- `src/sts_ironclad_rl/live/`: live observation, action, policy, rollout, and evaluation helpers
+- `src/sts_ironclad_rl/training/`: learner contract, DQN baseline, artifacts, specs, and benchmark helpers
+- `configs/`: canonical collection, training, and benchmark configs
+- `scripts/`: thin live entrypoints built on package helpers
+- `tests/`: deterministic unit, integration, and smoke coverage
+
+## Limitations
+
+- live execution is slow and noisy, so benchmark episode counts stay small
+- the masked DQN baseline is intentionally minimal and not sample-efficient
+- benchmark results are useful for integration validation and directional
+  comparisons, not strong research claims
+- future algorithm upgrades should extend the current learner/trainer path, not
+  replace it with a second stack

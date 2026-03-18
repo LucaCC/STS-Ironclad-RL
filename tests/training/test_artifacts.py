@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
+import pytest
+
 from sts_ironclad_rl.integration import ActionCommand, GameStateSnapshot
 from sts_ironclad_rl.live import (
     ActionDecision,
@@ -11,7 +13,13 @@ from sts_ironclad_rl.live import (
     RolloutResult,
     summarize_rollouts,
 )
-from sts_ironclad_rl.training import ExperimentArtifactStore, ExperimentSpec, make_run_metadata
+from sts_ironclad_rl.training import (
+    ExperimentArtifactStore,
+    ExperimentSpec,
+    create_dqn_trainer_run_layout,
+    make_run_metadata,
+    resolve_dqn_training_summary_path,
+)
 
 
 def test_artifact_store_uses_stable_run_layout_and_writes_outputs(tmp_path) -> None:
@@ -59,6 +67,20 @@ def test_artifact_store_uses_stable_run_layout_and_writes_outputs(tmp_path) -> N
     assert len(trajectory_lines) == 2
     assert json.loads(trajectory_lines[0])["entry"]["schema_version"] == "live_replay.v1"
     assert json.loads(trajectory_lines[0])["entry"]["action"]["action_id"] == "play_0"
+
+
+def test_dqn_trainer_artifact_layout_and_summary_resolution_are_canonical(tmp_path) -> None:
+    layout = create_dqn_trainer_run_layout(tmp_path / "masked_dqn_baseline")
+
+    assert layout.config_path == layout.root_dir / "config.json"
+    assert layout.summary_path == layout.root_dir / "summary.json"
+    assert layout.final_checkpoint_path == layout.checkpoints_dir / "checkpoint_final.pt"
+    assert resolve_dqn_training_summary_path(layout.final_checkpoint_path) == layout.summary_path
+
+
+def test_resolve_dqn_training_summary_path_rejects_noncanonical_checkpoint_paths(tmp_path) -> None:
+    with pytest.raises(ValueError, match="checkpoints/"):
+        resolve_dqn_training_summary_path(tmp_path / "checkpoint_final.pt")
 
 
 def _episode_result() -> RolloutResult:

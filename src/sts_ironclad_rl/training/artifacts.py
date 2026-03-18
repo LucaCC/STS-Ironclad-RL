@@ -31,6 +31,24 @@ class ExperimentRunLayout:
 
 
 @dataclass(frozen=True)
+class DQNTrainerRunLayout:
+    """Filesystem layout for one masked-DQN training run."""
+
+    root_dir: Path
+    config_path: Path
+    metrics_path: Path
+    evaluations_path: Path
+    summary_path: Path
+    checkpoints_dir: Path
+
+    @property
+    def final_checkpoint_path(self) -> Path:
+        """Return the canonical final checkpoint location."""
+
+        return self.checkpoints_dir / "checkpoint_final.pt"
+
+
+@dataclass(frozen=True)
 class RunMetadata:
     """Captured metadata for one experiment execution."""
 
@@ -141,6 +159,31 @@ def make_run_metadata(
     )
 
 
+def create_dqn_trainer_run_layout(root_dir: Path) -> DQNTrainerRunLayout:
+    """Create the canonical masked-DQN training artifact layout."""
+
+    root_dir.mkdir(parents=True, exist_ok=True)
+    checkpoints_dir = root_dir / "checkpoints"
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    return DQNTrainerRunLayout(
+        root_dir=root_dir,
+        config_path=root_dir / "config.json",
+        metrics_path=root_dir / "metrics.jsonl",
+        evaluations_path=root_dir / "evaluations.jsonl",
+        summary_path=root_dir / "summary.json",
+        checkpoints_dir=checkpoints_dir,
+    )
+
+
+def resolve_dqn_training_summary_path(checkpoint_path: str | Path) -> Path:
+    """Return the trainer summary path for a canonical checkpoint location."""
+
+    checkpoint = Path(checkpoint_path)
+    if checkpoint.parent.name != "checkpoints":
+        raise ValueError("checkpoint_path must live under a checkpoints/ directory")
+    return checkpoint.parent.parent / "summary.json"
+
+
 def slugify(value: str) -> str:
     """Normalize a human name for deterministic filesystem use."""
 
@@ -204,10 +247,13 @@ def _create_run_dir(*, experiment_dir: Path, run_id: str) -> Path:
 
 
 __all__ = [
+    "DQNTrainerRunLayout",
     "ExperimentArtifactStore",
     "ExperimentRunLayout",
     "RunMetadata",
     "build_run_id",
+    "create_dqn_trainer_run_layout",
     "make_run_metadata",
+    "resolve_dqn_training_summary_path",
     "slugify",
 ]

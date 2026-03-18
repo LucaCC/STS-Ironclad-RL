@@ -1,22 +1,16 @@
-"""Shared CLI helpers for the live rollout entrypoints."""
+"""Shared CLI wiring for live rollout scripts."""
 
 from __future__ import annotations
 
 import importlib
 from typing import Any
 
-from sts_ironclad_rl.integration import BridgeConfig, BridgeTransport, LiveGameBridge
-from sts_ironclad_rl.live import (
-    BridgeObservationEncoder,
-    CommunicationModActionContract,
-    LiveEpisodeRunner,
-    Policy,
-    RandomLegalPolicy,
-    ReplaySink,
-    RunnerConfig,
-    SimpleHeuristicPolicy,
-)
-from sts_ironclad_rl.training import load_trained_dqn_policy
+from ..integration import BridgeConfig, BridgeTransport, LiveGameBridge
+from .actions import CommunicationModActionContract
+from .contracts import Policy, ReplaySink
+from .observation import BridgeObservationEncoder
+from .policies import RandomLegalPolicy, SimpleHeuristicPolicy
+from .rollout import LiveEpisodeRunner, RunnerConfig
 
 
 def build_live_episode_runner(
@@ -42,20 +36,22 @@ def build_live_episode_runner(
     )
 
 
-def load_policy(
+def load_live_policy(
     policy_arg: str,
     *,
     seed: int | None,
     device: str = "cpu",
     policy_name: str | None = None,
 ) -> Policy:
-    """Resolve one built-in or user-provided policy factory."""
+    """Resolve one built-in, checkpoint-backed, or custom live policy factory."""
 
     if policy_arg in {"simple_heuristic", "heuristic"}:
         return SimpleHeuristicPolicy(name=policy_name or "simple_heuristic")
     if policy_arg in {"random_legal", "random"}:
         return RandomLegalPolicy(seed=seed, name=policy_name or "random_legal")
     if policy_arg.startswith("dqn_checkpoint:"):
+        from ..training.trainer import load_trained_dqn_policy
+
         checkpoint_path = policy_arg.split(":", maxsplit=1)[1]
         return load_trained_dqn_policy(
             checkpoint_path,
@@ -88,3 +84,11 @@ def load_object(import_path: str) -> Any:
     module_name, attribute_name = import_path.split(":", maxsplit=1)
     module = importlib.import_module(module_name)
     return getattr(module, attribute_name)
+
+
+__all__ = [
+    "build_live_episode_runner",
+    "instantiate_transport",
+    "load_live_policy",
+    "load_object",
+]

@@ -7,11 +7,11 @@ import argparse
 import json
 from pathlib import Path
 
-from scripts._live_utils import (
+from sts_ironclad_rl.live import (
     build_live_episode_runner,
     instantiate_transport,
+    load_live_policy,
     load_object,
-    load_policy,
 )
 from sts_ironclad_rl.training import ExperimentArtifactStore, ExperimentRunner, load_experiment_spec
 
@@ -84,7 +84,7 @@ def main() -> int:
         max_steps=spec.max_steps or 200,
     )
     policy_name = args.policy or spec.policy_name
-    policy = load_policy(
+    policy = load_live_policy(
         policy_name,
         seed=args.seed,
         device=args.device,

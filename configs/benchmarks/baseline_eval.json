@@ -5,7 +5,7 @@
   "max_steps": 150,
   "metadata": {
     "wave": "wave6",
-    "workflow": "thread13"
+    "workflow": "thread14"
   },
   "notes": "Small live batch for random-legal and heuristic baseline smoke comparison.",
   "policies": [
