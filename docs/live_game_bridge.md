@@ -158,6 +158,8 @@ CommunicationMod itself. The helper:
 - translates them into the repo's `GameStateSnapshot` bridge payload
 - exposes a local TCP socket for repo-side clients
 - writes either a queued live action or a safe `STATE` poll command to stdout
+- appends helper-side state-machine events to
+  `artifacts/debug/communication_mod_helper.jsonl` by default
 
 This keeps the repo-side training and evaluation scripts on the existing
 `BridgeTransport` abstraction while matching the proven CommunicationMod
@@ -173,6 +175,9 @@ command=python /Users/lucacc/Desktop/STS/STS-Ironclad-RL/scripts/communication_m
 
 If you choose a different port, pass the same `--host` and `--port` values to
 the repo scripts.
+
+Use `--debug-log-path /tmp/communication_mod_helper.jsonl` to override the
+default helper debug log location during a live run.
 
 ### Repo-side transport factory
 
@@ -221,8 +226,29 @@ python scripts/evaluate_live_policy.py \
   TCP client
 - the repo-side `SocketBridgeTransport` connects to that listener using the
   existing `BridgeConfig`
+- `BridgeConfig.connect_timeout_seconds` is only for opening the socket; the
+  repo-side transport uses a separate, longer `receive_timeout_seconds` budget
+  while waiting for post-action state updates
 - one helper should be paired with one local game instance
 - one live script should be connected to a helper at a time
+
+### Helper Debug Log
+
+Compare `artifacts/debug/communication_mod_helper.jsonl` with the rollout trace
+after a live-debugging run. Each JSONL record includes the helper `reason`,
+message and snapshot versions, duplicate count, available commands, any
+dispatched command, and the computed or reference fingerprint when available.
+
+The most useful `reason` values are:
+
+- `message_ingested` for each raw CommunicationMod payload the helper accepts
+- `action_dispatched` when the helper emits a queued live command
+- `ignore_duplicate` when a post-action payload matches the reference
+  fingerprint and is suppressed
+- `return_initial` or `return_changed` when the helper returns a snapshot to
+  the repo-side bridge
+- `fallback_duplicate_limit` or `fallback_timeout` when the helper stops
+  waiting for a changed post-action snapshot and returns the latest payload
 
 ### Known Limitations
 

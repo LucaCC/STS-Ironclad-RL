@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import select
 import socket
 import sys
@@ -12,6 +13,7 @@ import threading
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, TextIO
 
 from .bridge import BridgeConfig, BridgeTransport
@@ -21,6 +23,7 @@ DEFAULT_HELPER_HOST = "127.0.0.1"
 DEFAULT_HELPER_PORT = 8080
 DEFAULT_TIMEOUT_SECONDS = 5.0
 DEFAULT_MAX_DUPLICATE_SNAPSHOTS = 50
+DEFAULT_DEBUG_LOG_PATH = Path("artifacts/debug/communication_mod_helper.jsonl")
 STATE_POLL_COMMAND = "STATE"
 
 logger = logging.getLogger(__name__)
@@ -34,40 +37,39 @@ def build_transport() -> BridgeTransport:
 
 def compute_snapshot_fingerprint(snapshot: GameStateSnapshot) -> SnapshotFingerprint:
     """Build a deterministic fingerprint from stable combat fields only."""
+    return _freeze_fingerprint_payload(build_snapshot_fingerprint_payload(snapshot))
+
+
+def build_snapshot_fingerprint_payload(snapshot: GameStateSnapshot) -> dict[str, object]:
+    """Build a JSON-serializable fingerprint payload from stable combat fields only."""
     combat_state = _mapping_or_empty(snapshot.raw_state.get("combat_state"))
     player = _mapping_or_empty(combat_state.get("player"))
-    hand = _sequence_fingerprint(
+    hand = _sequence_payload(
         combat_state.get("hand"),
-        lambda card: (
-            _string_or_none(card.get("card_id")) or _string_or_none(card.get("id")),
-            _bool_or_none(card.get("is_playable")),
-        ),
+        lambda card: {
+            "card_id": _string_or_none(card.get("card_id")) or _string_or_none(card.get("id")),
+            "is_playable": _bool_or_none(card.get("is_playable")),
+        },
     )
-    monsters = _sequence_fingerprint(
+    monsters = _sequence_payload(
         combat_state.get("monsters"),
-        lambda monster: (
-            _optional_int(monster, "current_hp"),
-            _optional_int(monster, "block"),
-            _string_or_none(monster.get("intent")),
-            _bool_or_none(monster.get("is_alive")),
-            _bool_or_none(monster.get("is_targetable")),
-        ),
+        _monster_fingerprint_payload,
     )
 
-    return (
-        snapshot.screen_state,
-        _string_or_none(snapshot.raw_state.get("room_phase")),
-        _optional_int(combat_state, "turn"),
-        snapshot.floor,
-        snapshot.act,
-        (
-            _optional_int(player, "current_hp"),
-            _optional_int(player, "block"),
-            _optional_int(player, "energy"),
-        ),
-        hand,
-        monsters,
-    )
+    return {
+        "screen_state": snapshot.screen_state,
+        "room_phase": _string_or_none(snapshot.raw_state.get("room_phase")),
+        "turn": _optional_int(combat_state, "turn"),
+        "floor": snapshot.floor,
+        "act": snapshot.act,
+        "player": {
+            "current_hp": _optional_int(player, "current_hp"),
+            "block": _optional_int(player, "block"),
+            "energy": _optional_int(player, "energy"),
+        },
+        "hand": hand,
+        "monsters": monsters,
+    }
 
 
 def translate_comm_message_to_snapshot(
@@ -224,16 +226,19 @@ class CommunicationModBridgeHelper:
         port: int = DEFAULT_HELPER_PORT,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         max_duplicate_snapshots: int = DEFAULT_MAX_DUPLICATE_SNAPSHOTS,
+        debug_log_path: Path | str | None = DEFAULT_DEBUG_LOG_PATH,
         stdout: TextIO | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.timeout_seconds = timeout_seconds
         self.max_duplicate_snapshots = max_duplicate_snapshots
+        self.debug_log_path = _normalize_debug_log_path(debug_log_path)
         self._stdout = sys.stdout if stdout is None else stdout
         self._state_lock = threading.Lock()
         self._state_changed = threading.Condition(self._state_lock)
         self._stdout_lock = threading.Lock()
+        self._debug_log_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._session_id: str | None = None
         self._latest_snapshot: GameStateSnapshot | None = None
@@ -265,6 +270,7 @@ class CommunicationModBridgeHelper:
                 self._post_action_duplicate_count = 0
                 self._post_action_deadline = 0.0
                 self._pending_action = None
+                self._log_debug_event(reason="session_hello")
                 self._state_changed.notify_all()
             return None
 
@@ -290,12 +296,18 @@ class CommunicationModBridgeHelper:
         with self._state_changed:
             self._message_version += 1
             session_id = self._session_id
+            snapshot: GameStateSnapshot | None = None
             if session_id is not None:
                 snapshot = translate_comm_message_to_snapshot(message, session_id=session_id)
                 if snapshot is not None:
                     self._latest_snapshot = snapshot
                     self._latest_snapshot_version = self._message_version
                     self._record_duplicate_snapshot_if_needed(snapshot)
+            self._log_debug_event(
+                reason="message_ingested",
+                message=message,
+                snapshot=snapshot,
+            )
 
             command = STATE_POLL_COMMAND
             pending_action = self._pending_action
@@ -310,6 +322,12 @@ class CommunicationModBridgeHelper:
                 self._post_action_duplicate_count = 0
                 self._post_action_deadline = time.monotonic() + self.timeout_seconds
                 self._pending_action = None
+                self._log_debug_event(
+                    reason="action_dispatched",
+                    message=message,
+                    snapshot=snapshot,
+                    outgoing_command=command,
+                )
 
             self._state_changed.notify_all()
             return command
@@ -349,28 +367,26 @@ class CommunicationModBridgeHelper:
                         reference_fingerprint is None
                         or snapshot_fingerprint != reference_fingerprint
                     ):
+                        reason = (
+                            "return_initial" if reference_fingerprint is None else "return_changed"
+                        )
                         if reference_fingerprint is not None:
-                            logger.info(
-                                "snapshot_changed_after_action",
-                                extra={
-                                    "event": "snapshot_changed_after_action",
-                                    "duplicate_count": self._post_action_duplicate_count,
-                                    "session_id": snapshot.session_id,
-                                },
-                            )
+                            logger.info("snapshot_changed_after_action")
+                        self._log_debug_event(
+                            reason=reason,
+                            snapshot=snapshot,
+                        )
                         self._last_delivered_fingerprint = snapshot_fingerprint
                         self._post_action_reference_fingerprint = None
                         self._post_action_duplicate_count = 0
                         self._post_action_deadline = 0.0
                         return snapshot
-                    if self._should_fallback_to_latest_snapshot():
-                        logger.warning(
-                            "post_action_snapshot_wait_fallback",
-                            extra={
-                                "event": "post_action_snapshot_wait_fallback",
-                                "duplicate_count": self._post_action_duplicate_count,
-                                "session_id": snapshot.session_id,
-                            },
+                    fallback_reason = self._fallback_reason()
+                    if fallback_reason is not None:
+                        logger.warning("post_action_snapshot_wait_fallback")
+                        self._log_debug_event(
+                            reason=fallback_reason,
+                            snapshot=snapshot,
                         )
                         self._last_delivered_fingerprint = snapshot_fingerprint
                         self._post_action_reference_fingerprint = None
@@ -380,6 +396,7 @@ class CommunicationModBridgeHelper:
 
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
+                    self._log_debug_event(reason="request_timeout", snapshot=snapshot)
                     return None
                 self._state_changed.wait(timeout=remaining)
         return None
@@ -486,15 +503,8 @@ class CommunicationModBridgeHelper:
             return
 
         self._post_action_duplicate_count += 1
-        logger.info(
-            "duplicate_snapshot_ignored",
-            extra={
-                "event": "duplicate_snapshot_ignored",
-                "duplicate_count": self._post_action_duplicate_count,
-                "message_version": self._message_version,
-                "session_id": snapshot.session_id,
-            },
-        )
+        logger.info("duplicate_snapshot_ignored")
+        self._log_debug_event(reason="ignore_duplicate", snapshot=snapshot)
 
     def _resolve_action_reference_fingerprint(self) -> SnapshotFingerprint | None:
         if self._last_delivered_fingerprint is not None:
@@ -504,10 +514,65 @@ class CommunicationModBridgeHelper:
             return None
         return compute_snapshot_fingerprint(latest_snapshot)
 
-    def _should_fallback_to_latest_snapshot(self) -> bool:
+    def _fallback_reason(self) -> str | None:
         if self._post_action_duplicate_count >= self.max_duplicate_snapshots:
-            return True
-        return self._post_action_deadline > 0.0 and time.monotonic() >= self._post_action_deadline
+            return "fallback_duplicate_limit"
+        if self._post_action_deadline > 0.0 and time.monotonic() >= self._post_action_deadline:
+            return "fallback_timeout"
+        return None
+
+    def _log_debug_event(
+        self,
+        *,
+        reason: str,
+        message: Mapping[str, Any] | None = None,
+        snapshot: GameStateSnapshot | None = None,
+        outgoing_command: str | None = None,
+    ) -> None:
+        if self.debug_log_path is None:
+            return
+
+        record: dict[str, object] = {
+            "event": "communication_mod_helper",
+            "reason": reason,
+            "session_id": self._session_id,
+            "message_version": self._message_version,
+            "latest_snapshot_version": self._latest_snapshot_version,
+            "required_snapshot_version": self._required_snapshot_version,
+            "duplicate_count": self._post_action_duplicate_count,
+            "pending_action": self._pending_action.command_text if self._pending_action else None,
+            "outgoing_command": outgoing_command,
+        }
+        if message is not None:
+            record["ready_for_command"] = _bool_or_none(message.get("ready_for_command"))
+            record["in_game"] = _bool_or_none(message.get("in_game"))
+            available_commands = message.get("available_commands")
+            if isinstance(available_commands, list):
+                record["available_commands"] = [
+                    command for command in available_commands if isinstance(command, str)
+                ]
+        if snapshot is not None:
+            record["snapshot_screen_state"] = snapshot.screen_state
+            record["computed_fingerprint"] = build_snapshot_fingerprint_payload(snapshot)
+            if "available_commands" not in record:
+                available_commands = snapshot.raw_state.get("available_commands")
+                if isinstance(available_commands, list):
+                    record["available_commands"] = [
+                        command for command in available_commands if isinstance(command, str)
+                    ]
+            if "ready_for_command" not in record:
+                record["ready_for_command"] = _bool_or_none(
+                    snapshot.raw_state.get("ready_for_command")
+                )
+            if "in_game" not in record:
+                record["in_game"] = _bool_or_none(snapshot.raw_state.get("in_game"))
+        reference_fingerprint = self._post_action_reference_fingerprint
+        if reference_fingerprint is not None:
+            record["reference_fingerprint"] = _thaw_fingerprint(reference_fingerprint)
+        with self._debug_log_lock:
+            self.debug_log_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.debug_log_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(record, sort_keys=True) + os.linesep)
 
 
 def build_helper_parser() -> argparse.ArgumentParser:
@@ -526,6 +591,11 @@ def build_helper_parser() -> argparse.ArgumentParser:
         default=DEFAULT_TIMEOUT_SECONDS,
         help="Socket and request timeout budget",
     )
+    parser.add_argument(
+        "--debug-log-path",
+        default=str(DEFAULT_DEBUG_LOG_PATH),
+        help="JSONL file for helper-side state-machine debug events",
+    )
     return parser
 
 
@@ -536,6 +606,7 @@ def helper_main(argv: list[str] | None = None) -> int:
         host=args.host,
         port=args.port,
         timeout_seconds=args.timeout_seconds,
+        debug_log_path=args.debug_log_path,
     )
     return helper.run()
 
@@ -576,18 +647,18 @@ def _mapping_or_empty(value: Any) -> Mapping[str, Any]:
     return {}
 
 
-def _sequence_fingerprint(
+def _sequence_payload(
     value: Any,
-    item_builder: Callable[[Mapping[str, Any]], tuple[object, ...]],
-) -> tuple[tuple[object, ...], ...]:
+    item_builder: Callable[[Mapping[str, Any]], dict[str, object]],
+) -> list[dict[str, object]]:
     if not isinstance(value, list):
-        return ()
-    fingerprint_items: list[tuple[object, ...]] = []
+        return []
+    payload_items: list[dict[str, object]] = []
     for item in value:
         if not isinstance(item, Mapping):
             continue
-        fingerprint_items.append(item_builder(item))
-    return tuple(fingerprint_items)
+        payload_items.append(item_builder(item))
+    return payload_items
 
 
 def _string_or_none(value: Any) -> str | None:
@@ -600,6 +671,57 @@ def _bool_or_none(value: Any) -> bool | None:
     if isinstance(value, bool):
         return value
     return None
+
+
+def _monster_fingerprint_payload(monster: Mapping[str, Any]) -> dict[str, object]:
+    """Normalize live monster fields conservatively across test and mod payload shapes."""
+    is_gone = _bool_or_none(monster.get("is_gone"))
+    is_alive = _bool_or_none(monster.get("is_alive"))
+    if is_alive is None and is_gone is not None:
+        is_alive = not is_gone
+    if is_alive is None:
+        current_hp = _optional_int(monster, "current_hp")
+        if current_hp is not None:
+            is_alive = current_hp > 0
+    is_targetable = _bool_or_none(monster.get("is_targetable"))
+    if is_targetable is None and is_gone is not None:
+        is_targetable = not is_gone
+    if is_targetable is None:
+        is_targetable = is_alive
+
+    return {
+        "current_hp": _optional_int(monster, "current_hp"),
+        "block": _optional_int(monster, "block"),
+        "intent": _string_or_none(monster.get("intent")),
+        "is_alive": is_alive,
+        "is_targetable": is_targetable,
+        "is_gone": is_gone,
+    }
+
+
+def _freeze_fingerprint_payload(value: object) -> object:
+    if isinstance(value, dict):
+        return tuple((key, _freeze_fingerprint_payload(val)) for key, val in sorted(value.items()))
+    if isinstance(value, list):
+        return tuple(_freeze_fingerprint_payload(item) for item in value)
+    return value
+
+
+def _thaw_fingerprint(value: object) -> object:
+    if isinstance(value, tuple):
+        if all(
+            isinstance(item, tuple) and len(item) == 2 and isinstance(item[0], str)
+            for item in value
+        ):
+            return {str(key): _thaw_fingerprint(val) for key, val in value}
+        return [_thaw_fingerprint(item) for item in value]
+    return value
+
+
+def _normalize_debug_log_path(value: Path | str | None) -> Path | None:
+    if value is None:
+        return None
+    return Path(value)
 
 
 def _required_int(arguments: Mapping[str, Any], key: str) -> int:
