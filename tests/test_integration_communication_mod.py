@@ -4,6 +4,7 @@ import json
 import logging
 import socket
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -58,6 +59,12 @@ def _combat_message(
             },
         },
     }
+
+
+def _read_jsonl(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
 def test_translate_comm_message_to_snapshot_flattens_game_state() -> None:
@@ -172,8 +179,30 @@ def test_compute_snapshot_fingerprint_changes_for_relevant_combat_fields() -> No
     assert compute_snapshot_fingerprint(changed_monster) != base_fingerprint
 
 
-def test_helper_waits_for_post_action_snapshot() -> None:
-    helper = CommunicationModBridgeHelper(timeout_seconds=0.2)
+def test_compute_snapshot_fingerprint_handles_live_monster_is_gone() -> None:
+    base = translate_comm_message_to_snapshot(
+        _combat_message(
+            monsters=[{"current_hp": 12, "block": 0, "intent": "ATTACK", "is_gone": False}]
+        ),
+        session_id="session-1",
+    )
+    changed = translate_comm_message_to_snapshot(
+        _combat_message(
+            monsters=[{"current_hp": 12, "block": 0, "intent": "ATTACK", "is_gone": True}]
+        ),
+        session_id="session-1",
+    )
+
+    assert base is not None
+    assert changed is not None
+    assert compute_snapshot_fingerprint(base) != compute_snapshot_fingerprint(changed)
+
+
+def test_helper_waits_for_post_action_snapshot(tmp_path: Path) -> None:
+    helper = CommunicationModBridgeHelper(
+        timeout_seconds=0.2,
+        debug_log_path=tmp_path / "helper.jsonl",
+    )
     helper.handle_envelope(
         BridgeEnvelope.from_message(
             BridgeMessageType.SESSION_HELLO,
@@ -258,8 +287,11 @@ def test_helper_waits_for_post_action_snapshot() -> None:
     assert response.payload["raw_state"]["combat_state"]["turn"] == 2
 
 
-def test_helper_drops_stale_snapshot_on_new_session_hello() -> None:
-    helper = CommunicationModBridgeHelper(timeout_seconds=0.2)
+def test_helper_drops_stale_snapshot_on_new_session_hello(tmp_path: Path) -> None:
+    helper = CommunicationModBridgeHelper(
+        timeout_seconds=0.2,
+        debug_log_path=tmp_path / "helper.jsonl",
+    )
     helper.handle_envelope(
         BridgeEnvelope.from_message(
             BridgeMessageType.SESSION_HELLO,
@@ -323,8 +355,12 @@ def test_helper_drops_stale_snapshot_on_new_session_hello() -> None:
     assert snapshot_response.payload["raw_state"]["combat_state"]["turn"] == 2
 
 
-def test_helper_ignores_duplicate_snapshots_after_action(caplog: pytest.LogCaptureFixture) -> None:
-    helper = CommunicationModBridgeHelper(timeout_seconds=0.2)
+def test_helper_ignores_duplicate_snapshots_after_action(
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    debug_log_path = tmp_path / "helper.jsonl"
+    helper = CommunicationModBridgeHelper(timeout_seconds=0.2, debug_log_path=debug_log_path)
     helper.handle_envelope(
         BridgeEnvelope.from_message(
             BridgeMessageType.SESSION_HELLO,
@@ -381,12 +417,22 @@ def test_helper_ignores_duplicate_snapshots_after_action(caplog: pytest.LogCaptu
     assert response.payload["raw_state"]["combat_state"]["player"]["energy"] == 2
     assert "duplicate_snapshot_ignored" in caplog.messages
     assert "snapshot_changed_after_action" in caplog.messages
+    records = _read_jsonl(debug_log_path)
+    assert [record["reason"] for record in records].count("ignore_duplicate") == 1
+    assert any(record["reason"] == "return_changed" for record in records)
+    assert any(record["reason"] == "action_dispatched" for record in records)
 
 
 def test_helper_falls_back_after_too_many_duplicate_snapshots(
     caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
 ) -> None:
-    helper = CommunicationModBridgeHelper(timeout_seconds=0.2, max_duplicate_snapshots=2)
+    debug_log_path = tmp_path / "helper.jsonl"
+    helper = CommunicationModBridgeHelper(
+        timeout_seconds=0.2,
+        max_duplicate_snapshots=2,
+        debug_log_path=debug_log_path,
+    )
     helper.handle_envelope(
         BridgeEnvelope.from_message(
             BridgeMessageType.SESSION_HELLO,
@@ -432,6 +478,35 @@ def test_helper_falls_back_after_too_many_duplicate_snapshots(
     assert response is not None
     assert response.payload["raw_state"]["combat_state"]["turn"] == 1
     assert "post_action_snapshot_wait_fallback" in caplog.messages
+    records = _read_jsonl(debug_log_path)
+    assert any(record["reason"] == "fallback_duplicate_limit" for record in records)
+
+
+def test_helper_emits_message_ingest_and_return_initial_debug_records(tmp_path: Path) -> None:
+    debug_log_path = tmp_path / "helper.jsonl"
+    helper = CommunicationModBridgeHelper(timeout_seconds=0.2, debug_log_path=debug_log_path)
+    helper.handle_envelope(
+        BridgeEnvelope.from_message(
+            BridgeMessageType.SESSION_HELLO,
+            BridgeSessionHello(session_id="session-1"),
+        )
+    )
+
+    assert helper.ingest_mod_message(_combat_message()) == "STATE"
+    response = helper.handle_envelope(
+        BridgeEnvelope(
+            message_type=BridgeMessageType.REQUEST_STATE,
+            payload={"session_id": "session-1"},
+        )
+    )
+
+    assert response is not None
+    records = _read_jsonl(debug_log_path)
+    assert any(record["reason"] == "message_ingested" for record in records)
+    initial_record = next(record for record in records if record["reason"] == "return_initial")
+    assert initial_record["computed_fingerprint"]["turn"] == 1
+    assert initial_record["computed_fingerprint"]["player"]["energy"] == 3
+    assert initial_record["available_commands"] == ["play", "end", "state"]
 
 
 def test_socket_bridge_transport_sends_and_receives_envelopes(
